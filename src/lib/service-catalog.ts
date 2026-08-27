@@ -1,0 +1,2149 @@
+export type TradeStatus = "handyman_ok" | "caution" | "licensed_required" | "do_not_accept";
+export type PricingMode = "informal_floor" | "solo_freelancer" | "insured_company";
+export type Confidence = "low" | "medium" | "high";
+
+export type PriceBand = { low: number; target: number; high: number };
+export type AddOn = { id: string; label: string; price: number };
+
+export type ServiceJob = {
+  id: string;
+  category: string;
+  name: string;
+  pricingUnit: string;
+  unitLabel: string;
+  includedQuantity: number;
+  defaultQuantity: number;
+  additionalUnitPrice: number;
+  pricing: Record<PricingMode, PriceBand>;
+  materialAllowance: number;
+  tradeStatus: TradeStatus;
+  confidence: Confidence;
+  sourceConfidence: string;
+  included: string[];
+  notIncluded: string[];
+  stopConditions: string;
+  sources: string[];
+  addOns: AddOn[];
+};
+
+export const pricingModes: Array<{ id: PricingMode; label: string; note: string; minimumVisit: number }> = [
+  { id: "informal_floor", label: "Informal floor", note: "Classifieds, teaser ads, low platform intro rates. Context only, not the recommended quote.", minimumVisit: 100 },
+  { id: "solo_freelancer", label: "Solo freelancer", note: "Recommended default for Louie: capable Toronto freelancer with tools, prep, and basic professionalism.", minimumVisit: 140 },
+  { id: "insured_company", label: "Company comparison", note: "Formal company or specialist pricing with higher overhead. Use as comparison.", minimumVisit: 175 },
+];
+
+export const conditionAdjustments = [
+  { id: "easy", label: "Easy", amount: -20, note: "Clear photos, simple access, no prep surprises." },
+  { id: "normal", label: "Normal", amount: 0, note: "Typical Toronto small-job conditions." },
+  { id: "difficult", label: "Difficult", amount: 50, note: "Extra prep, awkward access, seized parts, or slower work." },
+  { id: "unknown", label: "Unknown", amount: 35, note: "Use until photos confirm exact scope." },
+];
+
+export const travelOptions = [
+  { id: "nearby", label: "Nearby or bundled", amount: 0, note: "Very close, or combined with other work." },
+  { id: "normal", label: "Normal Toronto travel", amount: 30, note: "Regular drive/transit time and travel friction." },
+  { id: "far", label: "Far or difficult travel", amount: 60, note: "Longer distance, awkward route, or hard schedule." },
+];
+
+export const parkingOptions = [
+  { id: "none", label: "No parking", amount: 0 },
+  { id: "estimate", label: "Parking estimate", amount: 20 },
+  { id: "downtown", label: "Downtown parking", amount: 35 },
+];
+
+export const accessOptions = [
+  { id: "easy", label: "House or easy access", amount: 0, note: "No concierge/elevator/loading delay." },
+  { id: "condo", label: "Condo/elevator/security", amount: 40, note: "Adds time for parking, concierge, elevator, and setup." },
+  { id: "difficult", label: "Difficult access", amount: 75, note: "Use when access uncertainty can eat the schedule." },
+];
+
+export const materialOptions = [
+  { id: "client", label: "Client supplies materials", defaultMarkupPercent: 0, defaultPickupFee: 0, note: "Adds no parts cost. Labour and expenses only." },
+  { id: "stock", label: "I supply from stock", defaultMarkupPercent: 25, defaultPickupFee: 0, note: "Use for parts or consumables you already have." },
+  { id: "standard-pickup", label: "I buy standard parts", defaultMarkupPercent: 25, defaultPickupFee: 40, note: "Default: material cost + 25% markup + $40 shopping/pickup fee." },
+  { id: "special-order", label: "Special-order or matching parts", defaultMarkupPercent: 30, defaultPickupFee: 75, note: "Use when matching, returns, or multiple stores are likely." },
+];
+
+export const urgencyOptions = [
+  { id: "scheduled", label: "Scheduled", type: "flat", amount: 0 },
+  { id: "same-day", label: "Same day", type: "flat", amount: 75 },
+  { id: "evening-weekend", label: "Evening or weekend", type: "percent", amount: 0.3 },
+] as const;
+
+const sameFixtureAddOnGroups: Record<"toilet" | "sink", AddOn[]> = {
+  toilet: [
+    { id: "toilet-supply-line", label: "Replace toilet supply line", price: 35 },
+    { id: "toilet-fill-valve", label: "Replace fill valve", price: 60 },
+    { id: "toilet-flush-valve", label: "Replace flush valve", price: 90 },
+    { id: "toilet-handle-flapper", label: "Replace flush handle, chain, or flapper", price: 45 },
+    { id: "toilet-seat", label: "Replace toilet seat", price: 55 },
+    { id: "toilet-tank-bolts", label: "Replace corroded tank bolts/gasket", price: 50 },
+  ],
+  sink: [
+    { id: "sink-supply-lines", label: "Replace faucet supply lines", price: 40 },
+    { id: "sink-faucet", label: "Replace faucet while under-sink area is open", price: 100 },
+    { id: "sink-pop-up-po-plug", label: "Replace pop-up drain / PO plug", price: 75 },
+    { id: "sink-basket-strainer", label: "Replace kitchen basket strainer", price: 90 },
+    { id: "sink-p-trap", label: "Replace P-trap", price: 75 },
+    { id: "sink-minor-snake", label: "Minor sink snake while trap is off", price: 75 },
+    { id: "sink-caulk", label: "Remove and redo sink caulk/silicone", price: 50 },
+  ],
+};
+
+const sameFixtureGroupsByJobId: Record<string, Array<keyof typeof sameFixtureAddOnGroups>> = {
+  "toilet-seat-replacement": ["toilet"],
+  "toilet-bowl-replacement-reset": ["toilet"],
+  "toilet-tank-replacement": ["toilet"],
+  "toilet-fill-valve-replacement": ["toilet"],
+  "toilet-flush-valve-replacement": ["toilet"],
+  "toilet-handle-chain-flapper-repair": ["toilet"],
+  "vanity-sink-replacement": ["sink"],
+  "faucet-replacement-visible-shutoffs": ["sink"],
+  "pop-up-po-plug-replacement": ["sink"],
+  "basket-strainer-replacement": ["sink"],
+  "p-trap-replacement-visible": ["sink"],
+  "faucet-aerator-replacement-cleaning": ["sink"],
+  "minor-sink-unplugging-hand-snake": ["sink"],
+};
+
+const equivalentAddOnsByPrimaryJobId: Record<string, string[]> = {
+  "toilet-seat-replacement": ["toilet-seat"],
+  "toilet-fill-valve-replacement": ["toilet-fill-valve"],
+  "toilet-flush-valve-replacement": ["toilet-flush-valve"],
+  "toilet-handle-chain-flapper-repair": ["toilet-handle-flapper"],
+  "faucet-replacement-visible-shutoffs": ["sink-faucet"],
+  "pop-up-po-plug-replacement": ["sink-pop-up-po-plug"],
+  "basket-strainer-replacement": ["sink-basket-strainer"],
+  "p-trap-replacement-visible": ["sink-p-trap"],
+  "minor-sink-unplugging-hand-snake": ["sink-minor-snake"],
+};
+
+export function getSameFixtureAddOns(job: ServiceJob): AddOn[] {
+  const excluded = new Set(equivalentAddOnsByPrimaryJobId[job.id] ?? []);
+  const addOns = [...job.addOns];
+
+  for (const group of sameFixtureGroupsByJobId[job.id] ?? []) {
+    addOns.push(...sameFixtureAddOnGroups[group]);
+  }
+
+  const seen = new Set<string>();
+  return addOns.filter((item) => {
+    if (excluded.has(item.id) || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+export const serviceJobs: ServiceJob[] = [
+  {
+    "id": "door-knob-lever-replacement-existing-bore-latch-prep",
+    "category": "Doors, locks, and hardware",
+    "name": "Door knob/lever replacement, existing bore/latch prep",
+    "pricingUnit": "per knob/lever set, labour only, customer supplies hardware",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 48,
+    "pricing": {
+      "informal_floor": {
+        "low": 46,
+        "target": 77,
+        "high": 120
+      },
+      "solo_freelancer": {
+        "low": 70,
+        "target": 110,
+        "high": 160
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 200,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$90-$150 first set",
+      "$35-$60 each additional same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if exterior security door is damaged, bore/backset is non-standard, latch mortise needs major routing, multipoint/mortise lock, access-control wiring, or condo/fire-door approval is required.",
+    "sources": [
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://taskpin.co/services/door_repair",
+      "https://www.homestars.com/handyman-services/locksmith-pros/toronto"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "deadbolt-replacement-in-existing-bore",
+    "category": "Doors, locks, and hardware",
+    "name": "Deadbolt replacement in existing bore",
+    "pricingUnit": "per deadbolt, existing standard 2-1/8 in bore and aligned strike, labour only",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 75,
+    "pricing": {
+      "informal_floor": {
+        "low": 65,
+        "target": 98,
+        "high": 150
+      },
+      "solo_freelancer": {
+        "low": 100,
+        "target": 140,
+        "high": 200
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 275,
+        "high": 400
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "medium-high",
+    "included": [
+      "$120-$175 first deadbolt",
+      "$60-$90 each additional same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if rekeying/master keying, high-security restricted cylinder, break-in damage, steel/commercial/fire door, strike reinforcement beyond long screws, or poor door alignment prevents smooth throw.",
+    "sources": [
+      "https://www.homestars.com/handyman-services/locksmith-pros/toronto",
+      "https://ontariodoorrepair.ca/residential-door-repair-cost-toronto-2026",
+      "https://matrixlocksmith.ca/locksmith-price-list-toronto/",
+      "https://247gtalocksmith.com/blog/cost-of-changing-door-locks"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "new-deadbolt-drilling-and-install",
+    "category": "Doors, locks, and hardware",
+    "name": "New deadbolt drilling and install",
+    "pricingUnit": "per new deadbolt opening, includes drilling/cross-bore/edge bore/strike mortise labour only",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 125,
+    "pricing": {
+      "informal_floor": {
+        "low": 98,
+        "target": 140,
+        "high": 225
+      },
+      "solo_freelancer": {
+        "low": 150,
+        "target": 200,
+        "high": 300
+      },
+      "insured_company": {
+        "low": 200,
+        "target": 350,
+        "high": 500
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$175-$250 first deadbolt",
+      "$100-$150 each additional same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if metal/steel or fibreglass door needs specialty bits, door has glass close to bore, mortise/multipoint hardware, condo/fire-rated exterior door, high-security lock warranty requirement, or drilling accuracy/security liability is beyond comfort.",
+    "sources": [
+      "https://247gtalocksmith.com/blog/cost-of-changing-door-locks",
+      "https://premiumlocksmith.ca/deadbolt-installation-in-toronto",
+      "https://torontoconstructionnetwork.com/construction-brain/how-much-should-i-budget-for-deadbolt-lock-install-in-toront-3fb672",
+      "https://www.homestars.com/handyman-services/locksmith-pros/toronto"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "hinge-replacement",
+    "category": "Doors, locks, and hardware",
+    "name": "Hinge replacement",
+    "pricingUnit": "per door, replace standard residential hinge set, labour only",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 90,
+    "pricing": {
+      "informal_floor": {
+        "low": 65,
+        "target": 105,
+        "high": 165
+      },
+      "solo_freelancer": {
+        "low": 100,
+        "target": 150,
+        "high": 220
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 250,
+        "high": 350
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "medium-high",
+    "included": [
+      "$120-$180 first door",
+      "$70-$110 each additional door same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if door is very heavy, exterior/security/fire-rated, frame is split/rotted, hinge mortises need relocation, two-person handling is needed, or door/frame is out of square beyond hinge adjustment.",
+    "sources": [
+      "https://taskpin.co/services/door_repair",
+      "https://ontariodoorrepair.ca/residential-door-repair-cost-toronto-2026",
+      "https://www.taskrabbit.ca/locations/toronto/door-repair",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "hinge-screw-repair-long-screws-plug-stripped-holes",
+    "category": "Doors, locks, and hardware",
+    "name": "Hinge screw repair, long screws, plug stripped holes",
+    "pricingUnit": "per door for minor sag/loose-hinge repair, no full frame repair",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 45,
+    "pricing": {
+      "informal_floor": {
+        "low": 46,
+        "target": 77,
+        "high": 128
+      },
+      "solo_freelancer": {
+        "low": 70,
+        "target": 110,
+        "high": 170
+      },
+      "insured_company": {
+        "low": 120,
+        "target": 185,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$80-$140 first door",
+      "$30-$60 each additional door same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if jamb is cracked/rotted, screws will not bite into structure, hinge leaf is bent/cracked, door still sags after repair, or security/exterior door needs reinforcement plates.",
+    "sources": [
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://ontariodoorrepair.ca/residential-door-repair-cost-toronto-2026",
+      "https://taskpin.co/services/door_repair",
+      "https://www.mrhandyman.com/blog/how-to-fix-a-loose-door-latch-so-your-door-doesn"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "strike-latch-adjustment-for-door-that-will-not-latch",
+    "category": "Doors, locks, and hardware",
+    "name": "Strike/latch adjustment for door that will not latch",
+    "pricingUnit": "per door, minor strike tab/file/chisel/hinge tweak only",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 55,
+    "pricing": {
+      "informal_floor": {
+        "low": 52,
+        "target": 84,
+        "high": 135
+      },
+      "solo_freelancer": {
+        "low": 80,
+        "target": 120,
+        "high": 180
+      },
+      "insured_company": {
+        "low": 120,
+        "target": 185,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "medium-high",
+    "included": [
+      "$90-$150 first door",
+      "$40-$70 each additional door same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if deadbolt will not throw because frame/door has shifted badly, door needs planing, frame repair, lock replacement, security strike reinforcement, or exterior door cannot be left secure.",
+    "sources": [
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://ontariodoorrepair.ca/residential-door-repair-cost-toronto-2026",
+      "https://taskpin.co/services/door_repair",
+      "https://www.mrhandyman.com/blog/how-to-fix-a-loose-door-latch-so-your-door-doesn"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "door-stopper-install-or-replacement",
+    "category": "Doors, locks, and hardware",
+    "name": "Door stopper install or replacement",
+    "pricingUnit": "per simple wall/baseboard/hinge-pin stopper, hardware extra",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 30,
+    "pricing": {
+      "informal_floor": {
+        "low": 39,
+        "target": 63,
+        "high": 105
+      },
+      "solo_freelancer": {
+        "low": 60,
+        "target": 90,
+        "high": 140
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 202,
+        "high": 255
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "low (weak direct local evidence; priced from Toronto handyman minimums and small-task batching)",
+    "included": [
+      "$70-$120 first stopper or bundle minimum",
+      "$20-$40 each additional same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if wall has hidden services, tile/glass/stone drilling is required, fire door clearances are affected, or customer expects patch/paint of prior impact damage included.",
+    "sources": [
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://www.homestars.com/handyman-services/handyman-pros/toronto",
+      "https://www.kijiji.ca/b-gta-greater-toronto-area/handyman-services/k0l1700272"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "door-closer-adjustment-or-replacement",
+    "category": "Doors, locks, and hardware",
+    "name": "Door closer adjustment or replacement",
+    "pricingUnit": "per closer; adjustment only or surface/storm/residential closer replacement, parts extra unless stated",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 110,
+    "pricing": {
+      "informal_floor": {
+        "low": 58,
+        "target": 105,
+        "high": 225
+      },
+      "solo_freelancer": {
+        "low": 90,
+        "target": 150,
+        "high": 300
+      },
+      "insured_company": {
+        "low": 180,
+        "target": 415,
+        "high": 650
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$100-$160 adjustment; $150-$300 replacement first closer",
+      "$70-$150 each additional closer same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop and refer if fire-rated exit, commercial storefront, accessibility opening-force compliance, leaking hydraulic body, concealed/floor closer, panic hardware, access control, or door will not self-close/latch safely.",
+    "sources": [
+      "https://www.ontariodoorrepair.ca/commercial-door-closer-replacement/",
+      "https://www.ontariodoorrepair.ca/commercial-door-repair-cost-toronto-2026-guide/",
+      "https://taskpin.co/services/door_repair",
+      "https://www.homestars.com/handyman-services/locksmith-pros/toronto"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "door-sweep-and-weatherstrip-replacement",
+    "category": "Doors, locks, and hardware",
+    "name": "Door sweep and weatherstrip replacement",
+    "pricingUnit": "per exterior door, head/jamb weatherstrip plus sweep where needed, materials extra unless stated",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 80,
+    "pricing": {
+      "informal_floor": {
+        "low": 65,
+        "target": 112,
+        "high": 210
+      },
+      "solo_freelancer": {
+        "low": 100,
+        "target": 160,
+        "high": 280
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 235,
+        "high": 320
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "medium-high",
+    "included": [
+      "$120-$200 first door labour; common all-in $150-$320",
+      "$60-$100 each additional door same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if threshold/frame is rotted, door requires planing or rehanging, custom kerf/threshold parts are unavailable, water intrusion needs exterior envelope repair, or condo/fire door rating is affected.",
+    "sources": [
+      "https://renohouse.ca/services/handyman/weather-stripping-door-window",
+      "https://ontariodoorrepair.ca/residential-door-repair-cost-toronto-2026",
+      "https://taskpin.co/services/door_repair",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "peephole-door-viewer-install",
+    "category": "Doors, locks, and hardware",
+    "name": "Peephole/door viewer install",
+    "pricingUnit": "per door viewer, standard wood/metal residential door, hardware extra",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 40,
+    "pricing": {
+      "informal_floor": {
+        "low": 46,
+        "target": 70,
+        "high": 120
+      },
+      "solo_freelancer": {
+        "low": 70,
+        "target": 100,
+        "high": 160
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 188,
+        "high": 225
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "low (weak local evidence; direct peephole pricing mostly non-local, anchored to Toronto handyman minimums)",
+    "included": [
+      "$80-$130 first peephole",
+      "$30-$50 each additional same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if fire-rated condo entry approval is required, door is steel/fibreglass with insulation/glass near hole, viewer height must meet accessibility/property rules, or mistake would void door warranty.",
+    "sources": [
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://www.countbricks.com/post/peephole-installation-cost",
+      "https://www.reddit.com/r/Home/comments/1898ne3/is_a_peephole_worth_installing_on_front_and_side/"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "chain-lock-or-swing-bar-door-guard-install",
+    "category": "Doors, locks, and hardware",
+    "name": "Chain lock or swing-bar door guard install",
+    "pricingUnit": "per surface-mounted security guard, hardware extra",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 40,
+    "pricing": {
+      "informal_floor": {
+        "low": 46,
+        "target": 70,
+        "high": 120
+      },
+      "solo_freelancer": {
+        "low": 70,
+        "target": 100,
+        "high": 160
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 200,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "low (weak direct local evidence; Kijiji shows local hardware/requests but little fixed labour pricing)",
+    "included": [
+      "$80-$130 first guard",
+      "$30-$50 each additional same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if customer expects forced-entry security rating, door/jamb is weak, condo/fire-door rules prohibit added hardware, screws cannot anchor into solid material, or child-safety/accessibility concerns are present.",
+    "sources": [
+      "https://www.kijiji.ca/b-gta-greater-toronto-area/door-lock/k0l1700272",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://www.homestars.com/handyman-services/locksmith-pros/toronto"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "smart-lock-install-setup-existing-compatible-bore",
+    "category": "Doors, locks, and hardware",
+    "name": "Smart lock install/setup, existing compatible bore",
+    "pricingUnit": "per customer-supplied smart lock, mechanical fit plus basic app/code setup",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 120,
+    "pricing": {
+      "informal_floor": {
+        "low": 84,
+        "target": 126,
+        "high": 225
+      },
+      "solo_freelancer": {
+        "low": 130,
+        "target": 180,
+        "high": 300
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 300,
+        "high": 450
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "high",
+    "sourceConfidence": "medium-high",
+    "included": [
+      "$150-$250 first smart lock",
+      "$90-$150 each additional same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop/refer if no existing deadbolt hole, mortise/multipoint lock, steel/fire-rated/condo exterior door, access-control wiring, hub/network troubleshooting beyond pairing, poor latch alignment causing motor strain, warranty requires locksmith install, or customer wants security certification.",
+    "sources": [
+      "https://prosfix.ca/locations/toronto/smart-lock-installation",
+      "https://matrixlocksmith.ca/locksmith-price-list-toronto/",
+      "https://770locksmith.ca/smart-lock-installation",
+      "https://renohouse.ca/blog/smart-lock-installation-guide-toronto",
+      "https://www.homestars.com/handyman-services/locksmith-pros"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "window-screen-mesh-replacement",
+    "category": "Screens and windows",
+    "name": "Window screen mesh replacement",
+    "pricingUnit": "per window screen; bundle after minimum visit",
+    "unitLabel": "screen",
+    "includedQuantity": 3,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 45,
+    "pricing": {
+      "informal_floor": {
+        "low": 30,
+        "target": 50,
+        "high": 75
+      },
+      "solo_freelancer": {
+        "low": 30,
+        "target": 50,
+        "high": 85
+      },
+      "insured_company": {
+        "low": 25,
+        "target": 160,
+        "high": 295
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$85-$150 first visit/minimum or first 1-3 screens",
+      "$25-$65 per additional standard screen"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if frame is bent/corroded, upper-floor exterior access, specialty/pet/no-see-um mesh not stocked, or client expects new full frame.",
+    "sources": [
+      "https://screenexpress.ca/faq",
+      "https://windowfixgta.ca/pricing",
+      "https://revitalizewindowsanddoors.com/cost-to-repair-window-screen-mesh-in-the-gta/",
+      "https://www.reddit.com/r/handyman/comments/1jzcie3/pricing_for_window_screen_replacement/ (weak sentiment)"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "screen-door-mesh-repair-replacement",
+    "category": "Screens and windows",
+    "name": "Screen door mesh repair/replacement",
+    "pricingUnit": "per sliding/storm screen door re-mesh",
+    "unitLabel": "screen door",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 125,
+    "pricing": {
+      "informal_floor": {
+        "low": 65,
+        "target": 94,
+        "high": 135
+      },
+      "solo_freelancer": {
+        "low": 100,
+        "target": 135,
+        "high": 180
+      },
+      "insured_company": {
+        "low": 80,
+        "target": 288,
+        "high": 495
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$125-$180 first door",
+      "$100-$150 per additional door same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if screen door frame is bent, corroded, out of square, retractable/custom system, pet mesh upgrade not stocked, or door must be removed from unsafe balcony access.",
+    "sources": [
+      "https://renohouse.ca/toronto/screen-door-repair",
+      "https://screenexpress.ca/faq",
+      "https://revitalizewindowsanddoors.com/how-much-does-it-cost-to-replace-mesh-on-a-sliding-screen-door",
+      "Kijiji/Facebook search snippet for Meshmen $135/door (weak)"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "screen-spline-replacement-re-tension",
+    "category": "Screens and windows",
+    "name": "Screen spline replacement / re-tension",
+    "pricingUnit": "per screen when mesh is reusable",
+    "unitLabel": "screen",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 18,
+    "pricing": {
+      "informal_floor": {
+        "low": 30,
+        "target": 52,
+        "high": 90
+      },
+      "solo_freelancer": {
+        "low": 40,
+        "target": 75,
+        "high": 120
+      },
+      "insured_company": {
+        "low": 45,
+        "target": 65,
+        "high": 85
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "low",
+    "included": [
+      "$75-$120 minimum visit",
+      "$10-$25 per additional screen if simple"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if mesh is brittle/torn, spline channel damaged, frame corners loose, or client expects invisible patching instead of full re-screen.",
+    "sources": [
+      "https://screenexpress.ca/faq",
+      "https://windowfixgta.ca/pricing",
+      "https://revitalizewindowsanddoors.com/cost-to-repair-window-screen-mesh-in-the-gta/"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "screen-frame-corner-repair",
+    "category": "Screens and windows",
+    "name": "Screen frame corner repair",
+    "pricingUnit": "per window screen frame/corner repair",
+    "unitLabel": "screen",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 38,
+    "pricing": {
+      "informal_floor": {
+        "low": 30,
+        "target": 52,
+        "high": 90
+      },
+      "solo_freelancer": {
+        "low": 40,
+        "target": 75,
+        "high": 120
+      },
+      "insured_company": {
+        "low": 65,
+        "target": 92,
+        "high": 120
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "low-medium",
+    "included": [
+      "$65-$120 first screen",
+      "$25-$50 per additional screen/corner set"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if aluminum rails are bent/kinked, frame is non-standard or missing, colour match is required, or new custom fabrication is needed.",
+    "sources": [
+      "https://screenexpress.ca/faq",
+      "https://windowfixgta.ca/pricing",
+      "https://revitalizewindowsanddoors.com/how-much-does-it-cost-to-replace-a-window-screen-in-the-gta/"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "patio-screen-door-roller-wheel-replacement",
+    "category": "Screens and windows",
+    "name": "Patio screen door roller/wheel replacement",
+    "pricingUnit": "per sliding screen door, rollers adjusted/replaced",
+    "unitLabel": "screen door",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 55,
+    "pricing": {
+      "informal_floor": {
+        "low": 49,
+        "target": 84,
+        "high": 135
+      },
+      "solo_freelancer": {
+        "low": 75,
+        "target": 120,
+        "high": 180
+      },
+      "insured_company": {
+        "low": 80,
+        "target": 190,
+        "high": 300
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$95-$150 first door plus parts",
+      "$35-$75 per additional screen door/roller set same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if it is the heavy glass patio door not the screen, track is bent, door must be lifted by two people, balcony access unsafe, or replacement roller type is unavailable.",
+    "sources": [
+      "https://screenexpress.ca/faq",
+      "https://renohouse.ca/toronto/screen-door-repair",
+      "https://screendoors.ca/sliding-screen-doors/",
+      "https://revitalizewindowsanddoors.com/sliding-patio-door-roller-replacement-cost-guide"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "screen-door-handle-latch",
+    "category": "Screens and windows",
+    "name": "Screen door handle/latch",
+    "pricingUnit": "per screen/storm/sliding screen door handle or latch",
+    "unitLabel": "screen door",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 52,
+    "pricing": {
+      "informal_floor": {
+        "low": 42,
+        "target": 77,
+        "high": 128
+      },
+      "solo_freelancer": {
+        "low": 65,
+        "target": 110,
+        "high": 170
+      },
+      "insured_company": {
+        "low": 50,
+        "target": 125,
+        "high": 200
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$90-$140 first door plus parts",
+      "$35-$70 per additional latch same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if keyed/security lock, patio glass-door lock, frame is cracked, strike plate cannot align, or condo/security requirements require locksmith/door specialist.",
+    "sources": [
+      "https://renohouse.ca/toronto/screen-door-repair",
+      "https://screendoors.ca/sliding-screen-doors/",
+      "https://windowfixgta.ca/pricing",
+      "https://enlivedoors.ca/sliding-door-repair"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "screen-storm-door-closer",
+    "category": "Screens and windows",
+    "name": "Screen/storm door closer",
+    "pricingUnit": "per surface-mounted closer replacement/adjustment",
+    "unitLabel": "door/item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 58,
+    "pricing": {
+      "informal_floor": {
+        "low": 46,
+        "target": 80,
+        "high": 131
+      },
+      "solo_freelancer": {
+        "low": 70,
+        "target": 115,
+        "high": 175
+      },
+      "insured_company": {
+        "low": 95,
+        "target": 148,
+        "high": 200
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "low",
+    "included": [
+      "$95-$150 first closer plus parts",
+      "$40-$75 per additional closer same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if door/frame is warped, closer mount is stripped beyond simple repair, glass storm insert risk, commercial closer, or life-safety/fire-rated door.",
+    "sources": [
+      "https://windowfixgta.ca/pricing",
+      "https://renohouse.ca/toronto/screen-door-repair",
+      "https://www.taskrabbit.com/services/handyman"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "window-crank-operator-replacement",
+    "category": "Screens and windows",
+    "name": "Window crank/operator replacement",
+    "pricingUnit": "per casement/awning window crank/operator",
+    "unitLabel": "window",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 100,
+    "pricing": {
+      "informal_floor": {
+        "low": 55,
+        "target": 91,
+        "high": 165
+      },
+      "solo_freelancer": {
+        "low": 85,
+        "target": 130,
+        "high": 220
+      },
+      "insured_company": {
+        "low": 75,
+        "target": 385,
+        "high": 695
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "high",
+    "sourceConfidence": "medium-high",
+    "included": [
+      "$110-$175 first crank plus parts if not included",
+      "$75-$125 per additional crank same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if sash will not close due to hinge/track/frame failure, hardware is discontinued, rotten wood/stripped mounting, upper exterior access, glass/seal failure, or egress/security concern.",
+    "sources": [
+      "https://windowfixgta.ca/pricing",
+      "https://revitalizewindowsanddoors.com/how-much-does-it-cost-to-replace-my-window-crank-operator/",
+      "https://homestars.com/companies/206616-fix-n-go-glass-screen-repairs (weak review: $250 for 3 cranks)"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "window-lock-latch-replacement",
+    "category": "Screens and windows",
+    "name": "Window lock/latch replacement",
+    "pricingUnit": "per window lock/latch/hardware item",
+    "unitLabel": "window",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 70,
+    "pricing": {
+      "informal_floor": {
+        "low": 49,
+        "target": 80,
+        "high": 135
+      },
+      "solo_freelancer": {
+        "low": 75,
+        "target": 115,
+        "high": 180
+      },
+      "insured_company": {
+        "low": 75,
+        "target": 162,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$95-$150 first lock plus parts",
+      "$50-$90 per additional lock same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if keyed security lock, broken glass, egress window issue, child-safety/legal requirement, frame damage, or exact matching hardware cannot be sourced.",
+    "sources": [
+      "https://windowfixgta.ca/pricing",
+      "https://www.dw-locksmiths.com/window-repair?area=toronto",
+      "https://icarusservices.ca/service/windows/repairs/lock/",
+      "https://windowfixgta.ca/blog/window-repair-vs-replacement-what-gta-homeowners-are-actually-paying-in-2026 (search snippet)"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "curtain-rods-blinds-installation",
+    "category": "Mounting and hanging",
+    "name": "Curtain rods / blinds installation",
+    "pricingUnit": "per window/opening; one rod or blind set",
+    "unitLabel": "window/opening",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 70,
+    "pricing": {
+      "informal_floor": {
+        "low": 32,
+        "target": 56,
+        "high": 94
+      },
+      "solo_freelancer": {
+        "low": 50,
+        "target": 80,
+        "high": 125
+      },
+      "insured_company": {
+        "low": 60,
+        "target": 105,
+        "high": 150
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "high",
+    "included": [
+      "$100-$150 first window/minimum",
+      "$50-$90 per additional window; lower if identical and pre-measured"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if drilling into concrete ceiling, tile/stone, unknown wiring/plumbing, high ladder, motorized hardwired blinds, or custom cutting/fabrication.",
+    "sources": [
+      "https://www.taskrabbit.ca/locations/toronto/blinds-installation",
+      "https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada",
+      "https://jan-handyman.com/interior-installation/curtain-blind-installation/",
+      "https://homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "shelves-small-wall-shelving",
+    "category": "Mounting and hanging",
+    "name": "Shelves / small wall shelving",
+    "pricingUnit": "per shelf or small bracketed unit",
+    "unitLabel": "shelf",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 80,
+    "pricing": {
+      "informal_floor": {
+        "low": 39,
+        "target": 66,
+        "high": 112
+      },
+      "solo_freelancer": {
+        "low": 60,
+        "target": 95,
+        "high": 150
+      },
+      "insured_company": {
+        "low": 100,
+        "target": 125,
+        "high": 150
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "high",
+    "included": [
+      "$110-$160 first shelf/minimum",
+      "$60-$100 per additional shelf same wall/visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if hidden services suspected, masonry/condo concrete needs special anchors, heavy load rating not provided, floating shelf hardware is poor, or cabinet/structural support is required.",
+    "sources": [
+      "https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada",
+      "https://taskpin.co/services/wall_hanging_and_mounting",
+      "https://www.taskrabbit.com/blog/how-much-does-it-cost-to-hire-a-tasker/",
+      "https://buildman.ca/tv-wall-mounting.html"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "mirrors-pictures-artwork-hanging",
+    "category": "Mounting and hanging",
+    "name": "Mirrors / pictures / artwork hanging",
+    "pricingUnit": "per item; gallery wall priced as batch",
+    "unitLabel": "item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 52,
+    "pricing": {
+      "informal_floor": {
+        "low": 30,
+        "target": 56,
+        "high": 112
+      },
+      "solo_freelancer": {
+        "low": 40,
+        "target": 80,
+        "high": 150
+      },
+      "insured_company": {
+        "low": 80,
+        "target": 100,
+        "high": 120
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "high",
+    "included": [
+      "$90-$140 first item/minimum",
+      "$30-$75 per additional light item; $80-$150 heavy/large"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if item is very heavy/frameless glass, no rated hanging hardware, plaster/brick/concrete complexity, stairwell/height risk, or two-person lift required.",
+    "sources": [
+      "https://taskpin.co/services/wall_hanging_and_mounting",
+      "https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada",
+      "https://www.taskrabbit.com/blog/how-much-does-it-cost-to-hire-a-tasker/",
+      "https://www.taskrabbit.ca/locations/toronto/blinds-installation"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "coat-hooks-towel-bars-small-holders",
+    "category": "Mounting and hanging",
+    "name": "Coat hooks / towel bars / small holders",
+    "pricingUnit": "per small wall-mounted item",
+    "unitLabel": "item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 40,
+    "pricing": {
+      "informal_floor": {
+        "low": 30,
+        "target": 50,
+        "high": 75
+      },
+      "solo_freelancer": {
+        "low": 35,
+        "target": 55,
+        "high": 90
+      },
+      "insured_company": {
+        "low": 100,
+        "target": 150,
+        "high": 200
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium",
+    "included": [
+      "$85-$120 minimum/first item",
+      "$25-$55 per additional item same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if tile/stone drilling without proper bit, shower waterproofing risk, heated towel bar/electrical, hollow door weak substrate, grab-bar/safety-critical use, or commercial/washroom code issue.",
+    "sources": [
+      "https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada",
+      "https://www.taskrabbit.com/services/mounting",
+      "https://www.taskrabbit.com/services/handyman",
+      "https://buildman.ca/tv-wall-mounting.html"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "cabinet-pulls-knobs-install-or-swap",
+    "category": "Cabinets",
+    "name": "Cabinet pulls/knobs install or swap",
+    "pricingUnit": "per visit; first 6-10 pulls if holes match, materials extra",
+    "unitLabel": "pull/knob",
+    "includedQuantity": 8,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 11,
+    "pricing": {
+      "informal_floor": {
+        "low": 58,
+        "target": 105,
+        "high": 188
+      },
+      "solo_freelancer": {
+        "low": 90,
+        "target": 150,
+        "high": 250
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 275,
+        "high": 400
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium; good general Toronto handyman evidence, cabinet-specific evidence is mostly non-local/national plus local guide snippets",
+    "included": [
+      "$120-$180",
+      "$5-$12 each matching-hole pull/knob; $10-$20 each if measuring/drilling new holes"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop/requote for misaligned old holes, damaged doors, custom jigs, stone/metal panels, expensive/high-gloss cabinetry, refacing/repair beyond hardware, or client-supplied hardware that does not fit.",
+    "sources": [
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://www.homeguide.com/costs/cost-to-install-cabinet-hardware",
+      "Kijiji search snippets: Toronto handyman ads around $30-$50/hr"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "cabinet-hinge-replacement-adjustment-including-soft-clos",
+    "category": "Cabinets",
+    "name": "Cabinet hinge replacement/adjustment, including soft-close hinge swaps",
+    "pricingUnit": "per visit; first 2-4 doors/hinges, parts extra",
+    "unitLabel": "door/hinge set",
+    "includedQuantity": 3,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 25,
+    "pricing": {
+      "informal_floor": {
+        "low": 65,
+        "target": 122,
+        "high": 225
+      },
+      "solo_freelancer": {
+        "low": 100,
+        "target": 175,
+        "high": 300
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 275,
+        "high": 400
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "medium-low; pricing inferred from Toronto minimums and non-local cabinet repair/hardware data",
+    "included": [
+      "$130-$200",
+      "$15-$35 per door/hinge set when same cup/bore pattern; $40-$75 per problem door needing drilling or repair"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop/requote if hinge holes are stripped beyond plug-and-screw repair, doors are warped, cabinet boxes are loose, new concealed-hinge boring is required, or alignment needs structural cabinet repair.",
+    "sources": [
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://www.homeguide.com/costs/cost-to-install-cabinet-hardware",
+      "TaskRabbit Toronto page snippets list cabinet repairs/hinge reinstall as common handyman work"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "toilet-seat-replacement",
+    "category": "Bathroom small repairs",
+    "name": "Toilet seat replacement",
+    "pricingUnit": "per toilet seat; seat supplied by client or billed separately",
+    "unitLabel": "item",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 38,
+    "pricing": {
+      "informal_floor": {
+        "low": 39,
+        "target": 70,
+        "high": 112
+      },
+      "solo_freelancer": {
+        "low": 60,
+        "target": 100,
+        "high": 150
+      },
+      "insured_company": {
+        "low": 100,
+        "target": 150,
+        "high": 200
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "high",
+    "sourceConfidence": "medium-high; direct Toronto toilet-seat price plus Toronto handyman minimums",
+    "included": [
+      "$75-$125 standalone; $50-$100 when bundled or already on site",
+      "$25-$50 per additional toilet seat in same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop/requote if bolts are seized/corroded and risk cracking porcelain, toilet is loose/leaking, seat is bidet/electrical/plumbed, shutoff valve leaks, or porcelain is cracked.",
+    "sources": [
+      "https://renohouse.ca/blog/toilet-installation-repair-guide",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "smoke-co-alarm-battery-replacement-only",
+    "category": "Filters and maintenance",
+    "name": "Smoke/CO alarm battery replacement only",
+    "pricingUnit": "per visit; first 1-3 alarms if accessible, batteries extra",
+    "unitLabel": "alarm",
+    "includedQuantity": 3,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 15,
+    "pricing": {
+      "informal_floor": {
+        "low": 32,
+        "target": 70,
+        "high": 112
+      },
+      "solo_freelancer": {
+        "low": 50,
+        "target": 100,
+        "high": 150
+      },
+      "insured_company": {
+        "low": 120,
+        "target": 185,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium; official safety scope is strong, exact battery-only pricing is inferred from Toronto minimums",
+    "included": [
+      "$75-$125 standalone; $40-$75 if bundled with other small jobs",
+      "$10-$20 per additional alarm battery; add ladder/access premium if needed"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop if alarm is hardwired and requires disconnecting wiring, alarm is expired over 10 years, alarm fails test after battery, CO alarm is sounding, fire alarm system is building/common element, ceiling is unsafe/high, or rental/condo rules require landlord/building-approved contractor.",
+    "sources": [
+      "https://www.toronto.ca/community-people/public-safety-alerts/safety-tips-prevention/safety-equipment-devices/smoke-alarms/",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://esasafe.com/consumer-protection/hire-licensed/"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "battery-only-smoke-co-alarm-replacement-like-for-like-no",
+    "category": "Filters and maintenance",
+    "name": "Battery-only smoke/CO alarm replacement, like-for-like no wiring",
+    "pricingUnit": "per visit; first alarm installed/tested, alarm unit extra",
+    "unitLabel": "alarm",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 32,
+    "pricing": {
+      "informal_floor": {
+        "low": 49,
+        "target": 88,
+        "high": 150
+      },
+      "solo_freelancer": {
+        "low": 75,
+        "target": 125,
+        "high": 200
+      },
+      "insured_company": {
+        "low": 120,
+        "target": 185,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium; battery-only labour inferred from minimums, hardwired comparison has direct local electrician source",
+    "included": [
+      "$90-$150",
+      "$20-$45 per additional battery-only alarm in same visit; hardware/materials extra"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Only battery-operated, no wiring. Stop/refer if hardwired, interconnected, new wiring/location, low-voltage/fire alarm panel, condo common system, alarm placement/code audit dispute, or device is not CSA/ULC-listed/current.",
+    "sources": [
+      "https://www.toronto.ca/community-people/public-safety-alerts/safety-tips-prevention/safety-equipment-devices/smoke-alarms/",
+      "https://www.koljibroselectrical.ca/smoke-detector-installation-toronto",
+      "https://esasafe.com/consumer-protection/hire-licensed/",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "thermostat-battery-replacement-only",
+    "category": "Filters and maintenance",
+    "name": "Thermostat battery replacement only",
+    "pricingUnit": "per thermostat; no wiring or diagnosis",
+    "unitLabel": "thermostat",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 15,
+    "pricing": {
+      "informal_floor": {
+        "low": 32,
+        "target": 63,
+        "high": 112
+      },
+      "solo_freelancer": {
+        "low": 50,
+        "target": 90,
+        "high": 150
+      },
+      "insured_company": {
+        "low": 100,
+        "target": 140,
+        "high": 180
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "low",
+    "sourceConfidence": "medium-low; battery-only price inferred from Toronto minimums; thermostat wiring/install comparison is stronger",
+    "included": [
+      "$75-$125 standalone; $30-$60 when bundled",
+      "$10-$20 per additional thermostat; batteries extra"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop/refer if thermostat remains blank, heat/cool/fan does not operate after batteries, wires are loose/damaged, C-wire/common wire needed, smart thermostat install/setup requested, furnace/AC fault appears, or any 120V electrical/gas/HVAC service is involved.",
+    "sources": [
+      "https://lloydhvac.com/hvac-contractor/thermostat-installation/",
+      "https://esasafe.com/doing-electrical-work/",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "furnace-filter-replacement-accessible-return-filter-slot",
+    "category": "Filters and maintenance",
+    "name": "Furnace filter replacement, accessible return/filter slot only",
+    "pricingUnit": "per visit; first furnace/air-handler filter, filter extra",
+    "unitLabel": "filter",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 18,
+    "pricing": {
+      "informal_floor": {
+        "low": 39,
+        "target": 70,
+        "high": 112
+      },
+      "solo_freelancer": {
+        "low": 60,
+        "target": 100,
+        "high": 150
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 200,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "medium; filter-only pricing inferred from minimums, safety boundaries strong",
+    "included": [
+      "$75-$125 standalone; $40-$75 bundled",
+      "$10-$25 per additional filter/return if same visit; add cost of filter"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Handyman scope is filter-only. Stop/refer for gas smell, CO alarm, burner/ignition/venting issues, furnace panels requiring service access, oil supply-line filters, electrical controls, airflow diagnosis, short-cycling, no heat/no AC, or filter fit/MERV concerns that need HVAC static-pressure judgment.",
+    "sources": [
+      "https://www.ontario.ca/laws/regulation/010215",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://urbantasker.com/handyman/toronto",
+      "https://getabetterquote.com/guides/furnace-filter-replacement-frequency-ontario/"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "condo-fan-coil-filter-replacement",
+    "category": "Filters and maintenance",
+    "name": "Condo fan coil filter replacement",
+    "pricingUnit": "per fan-coil unit; filter supplied separately unless stocked",
+    "unitLabel": "filter",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 38,
+    "pricing": {
+      "informal_floor": {
+        "low": 49,
+        "target": 88,
+        "high": 150
+      },
+      "solo_freelancer": {
+        "low": 75,
+        "target": 125,
+        "high": 200
+      },
+      "insured_company": {
+        "low": 180,
+        "target": 215,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "high",
+    "sourceConfidence": "medium-high for company maintenance; medium-low for freelancer-only filter swap",
+    "included": [
+      "$90-$150 first unit",
+      "$25-$50 per extra fan-coil filter/unit in same suite; Friendly Filter snippet shows extra fan-coil units at $25/filter"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Check condo rules first. Stop/refer if unit leaks, has mold, clogged drain pan, actuator/valve/motor issue, electrical control issue, hydronic loop issue, requires coil cleaning beyond wipe/vacuum, building-approved contractor required, or access panel removal risks damage.",
+    "sources": [
+      "https://friendlyfilter.ca/",
+      "https://www.condohvacpros.ca/services/condo-heating-systems",
+      "https://www.hometradestandards.com/services/condo-hvac-maintenance-repair/",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "ac-return-air-filter-replacement",
+    "category": "Filters and maintenance",
+    "name": "AC/return air filter replacement",
+    "pricingUnit": "per visit; first filter/grille, filter extra",
+    "unitLabel": "filter",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 18,
+    "pricing": {
+      "informal_floor": {
+        "low": 39,
+        "target": 70,
+        "high": 112
+      },
+      "solo_freelancer": {
+        "low": 60,
+        "target": 100,
+        "high": 150
+      },
+      "insured_company": {
+        "low": 150,
+        "target": 200,
+        "high": 250
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium; exact filter-only pricing inferred from Toronto minimums and maintenance guides",
+    "included": [
+      "$75-$125 standalone; $40-$75 bundled",
+      "$10-$25 per extra return/filter in same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Filter/grille only. Stop/refer for no cooling, refrigerant, coil cleaning, condensate drain work, electrical connections, blower issues, frozen coil, high-MERV/static-pressure concerns, rooftop/outdoor AC work, or shared condo/building systems.",
+    "sources": [
+      "https://thandymanservices.ca/seasonal-maintenance-filter-changes-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://urbantasker.com/handyman/toronto",
+      "https://buildman.ca/handyman-cost-toronto.html"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "range-hood-grease-charcoal-filter-clean-or-replacement",
+    "category": "Filters and maintenance",
+    "name": "Range hood grease/charcoal filter clean or replacement",
+    "pricingUnit": "per range hood; removable filters only, parts extra",
+    "unitLabel": "filter",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 22,
+    "pricing": {
+      "informal_floor": {
+        "low": 49,
+        "target": 84,
+        "high": 135
+      },
+      "solo_freelancer": {
+        "low": 75,
+        "target": 120,
+        "high": 180
+      },
+      "insured_company": {
+        "low": 120,
+        "target": 170,
+        "high": 220
+      }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "medium; range-hood repair source is local, filter-only labour inferred from minimums",
+    "included": [
+      "$90-$140",
+      "$15-$30 per additional removable filter or charcoal insert in same visit"
+    ],
+    "notIncluded": [
+      "Parts and materials unless stated",
+      "Parking, travel, difficult access, hidden damage, or work outside the listed scope"
+    ],
+    "stopConditions": "Stop/refer for fan motor, switches, wiring, light socket beyond bulb, duct alterations, hood removal, commercial hood/fire suppression, grease fire damage, inaccessible heavy hood, or gas-cooktop clearance/venting issues needing appliance/HVAC/electrical pro.",
+    "sources": [
+      "https://appliancealliance.ca/range-hood-repair/",
+      "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto",
+      "https://www.taskrabbit.ca/cost-guides/general-handyman",
+      "https://buildman.ca/handyman-cost-toronto.html",
+      "https://esasafe.com/doing-electrical-work/"
+    ],
+    "addOns": []
+  },
+  {
+    "id": "hardwired-smoke-co-alarm-replacement",
+    "category": "Referral and licensed work",
+    "name": "Hardwired smoke/CO alarm replacement",
+    "pricingUnit": "referral only, hardwired or interconnected alarm",
+    "unitLabel": "alarm",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 0,
+    "pricing": {
+      "informal_floor": { "low": 0, "target": 0, "high": 0 },
+      "solo_freelancer": { "low": 0, "target": 0, "high": 0 },
+      "insured_company": { "low": 150, "target": 225, "high": 350 }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "licensed_required",
+    "confidence": "high",
+    "sourceConfidence": "Official ESA and fire-safety guidance is strong. Pricing is referral planning only.",
+    "included": ["Referral guidance only", "Do not disconnect or reconnect hardwired alarms as handyman work"],
+    "notIncluded": ["Electrical wiring", "Interconnected alarm work", "Fire alarm system work"],
+    "stopConditions": "Refer if alarm is hardwired, interconnected, part of a condo/building fire alarm system, or requires any wiring, new location, or code decision.",
+    "sources": ["https://esasafe.com/consumer-protection/hire-licensed/", "https://www.toronto.ca/community-people/public-safety-alerts/safety-tips-prevention/safety-equipment-devices/smoke-alarms/"],
+    "addOns": []
+  },
+  {
+    "id": "outlet-switch-gfci-dimmer-replacement",
+    "category": "Referral and licensed work",
+    "name": "Outlet, switch, GFCI, or dimmer replacement",
+    "pricingUnit": "referral only, paid residential electrical work",
+    "unitLabel": "device",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 0,
+    "pricing": {
+      "informal_floor": { "low": 0, "target": 0, "high": 0 },
+      "solo_freelancer": { "low": 0, "target": 0, "high": 0 },
+      "insured_company": { "low": 150, "target": 250, "high": 450 }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "licensed_required",
+    "confidence": "high",
+    "sourceConfidence": "Official ESA rule. Keep as blocked quote so Louie does not accidentally accept wiring work.",
+    "included": ["Referral guidance only"],
+    "notIncluded": ["Opening devices", "Troubleshooting circuits", "Replacing wired fixtures or controls"],
+    "stopConditions": "Any paid work touching house wiring, outlets, switches, GFCIs, dimmers, fixtures, panels, breakers, circuits, or hardwired devices should go to an ESA Licensed Electrical Contractor.",
+    "sources": ["https://esasafe.com/consumer-protection/hire-licensed/", "https://esasafe.com/doing-electrical-work/"],
+    "addOns": []
+  },
+  {
+    "id": "gas-fuel-appliance-work",
+    "category": "Referral and licensed work",
+    "name": "Gas or fuel appliance work",
+    "pricingUnit": "do not accept, TSSA certified technician required",
+    "unitLabel": "job",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 0,
+    "pricing": {
+      "informal_floor": { "low": 0, "target": 0, "high": 0 },
+      "solo_freelancer": { "low": 0, "target": 0, "high": 0 },
+      "insured_company": { "low": 180, "target": 300, "high": 600 }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "do_not_accept",
+    "confidence": "high",
+    "sourceConfidence": "Official TSSA certification boundary. Pricing is referral context only.",
+    "included": ["Referral guidance only"],
+    "notIncluded": ["Gas line work", "Burner, ignition, combustion, venting, or appliance service"],
+    "stopConditions": "Do not accept gas smell, gas line, burner, ignition, combustion, venting, furnace service, fireplace service, water heater, or any fuel-fired appliance work without proper TSSA certification.",
+    "sources": ["https://www.tssa.org/fuels-industry-professional", "https://www.ontario.ca/laws/regulation/010215"],
+    "addOns": []
+  },
+  {
+    "id": "building-fire-alarm-system-device",
+    "category": "Referral and licensed work",
+    "name": "Building fire alarm system device",
+    "pricingUnit": "do not accept, life-safety system referral",
+    "unitLabel": "device",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 0,
+    "pricing": {
+      "informal_floor": { "low": 0, "target": 0, "high": 0 },
+      "solo_freelancer": { "low": 0, "target": 0, "high": 0 },
+      "insured_company": { "low": 200, "target": 400, "high": 800 }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "do_not_accept",
+    "confidence": "high",
+    "sourceConfidence": "Fire and life-safety systems should be handled by approved specialists.",
+    "included": ["Referral guidance only"],
+    "notIncluded": ["Testing, replacing, bypassing, silencing, wiring, or moving fire alarm devices"],
+    "stopConditions": "Do not touch devices tied to building fire panels, condo common systems, monitored systems, sprinklers, elevators, magnetic hold-opens, or fire-rated assemblies.",
+    "sources": ["https://www.toronto.ca/community-people/public-safety-alerts/safety-tips-prevention/safety-equipment-devices/smoke-alarms/"],
+    "addOns": []
+  },
+  {
+    "id": "toilet-bowl-replacement-reset",
+    "category": "Plumbing fixtures and drains",
+    "name": "Toilet bowl replacement or full toilet reset",
+    "pricingUnit": "per toilet, labour only, toilet/wax ring/supply parts extra",
+    "unitLabel": "toilet",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 175,
+    "pricing": { "informal_floor": { "low": 150, "target": 225, "high": 300 }, "solo_freelancer": { "low": 250, "target": 325, "high": 450 }, "insured_company": { "low": 300, "target": 500, "high": 800 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Toronto source OddJob lists $250-$400 labour only for toilet replacement. Plumber comparisons commonly $200-$500+ labour and $400-$800+ all-in.",
+    "included": ["Remove old toilet or bowl", "Set replacement with new wax/seal", "Reconnect supply and test for leaks"],
+    "notIncluded": ["Supplying toilet", "Flange repair", "Subfloor repair", "Drain relocation", "Disposal unless added"],
+    "stopConditions": "Stop if flange is broken, floor is soft, shutoff leaks, drain is offset or damaged, toilet is wall-hung/pressure-assisted/macerating, condo rules require licensed plumber, or active leak damage is found.",
+    "sources": ["https://oddjob.ca/how-much-does-a-handyman-charge-to-replace-a-toilet", "https://deltaplumbersinc.com/toilet-replacement-plumbing-service", "https://www.homedepot.com/services/c/cost-install-toilet/55af3b94a", "https://www.angi.com/articles/how-much-does-toilet-installation-cost.htm"],
+    "addOns": [{ "id": "haul-away", "label": "Remove/dispose old toilet", "price": 75 }, { "id": "supply-line", "label": "Replace supply line", "price": 35 }, { "id": "stuck-bolts", "label": "Corroded or seized bolts", "price": 50 }]
+  },
+  {
+    "id": "toilet-tank-replacement",
+    "category": "Plumbing fixtures and drains",
+    "name": "Toilet tank replacement",
+    "pricingUnit": "per compatible tank, labour only, tank/parts extra",
+    "unitLabel": "tank",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 90,
+    "pricing": { "informal_floor": { "low": 100, "target": 140, "high": 180 }, "solo_freelancer": { "low": 150, "target": 200, "high": 275 }, "insured_company": { "low": 200, "target": 300, "high": 450 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Specific tank-only Toronto pricing is weak, inferred from toilet repair/replacement and plumber visit pricing.",
+    "included": ["Remove compatible tank", "Install replacement tank/gasket/bolts", "Reconnect and leak test"],
+    "notIncluded": ["Supplying tank", "Bowl replacement", "Flange/floor work", "Non-compatible tank troubleshooting"],
+    "stopConditions": "Stop if tank does not match bowl, porcelain is cracked, bolts are seized, shutoff leaks, toilet rocks, or replacement requires full toilet replacement.",
+    "sources": ["https://oddjob.ca/how-much-does-a-handyman-charge-to-replace-a-toilet", "https://priorityplumbing.ca/plumbing/toilet-services", "https://modernize.com/plumbing/toilet-repair-cost"],
+    "addOns": [{ "id": "supply-line", "label": "Replace supply line", "price": 35 }, { "id": "new-fill-flush", "label": "Install new fill/flush valve while tank is off", "price": 60 }]
+  },
+  {
+    "id": "toilet-fill-valve-replacement",
+    "category": "Plumbing fixtures and drains",
+    "name": "Toilet fill valve replacement",
+    "pricingUnit": "per toilet tank fill valve, part extra unless entered under materials",
+    "unitLabel": "valve",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 45,
+    "pricing": { "informal_floor": { "low": 70, "target": 95, "high": 125 }, "solo_freelancer": { "low": 110, "target": 140, "high": 190 }, "insured_company": { "low": 150, "target": 225, "high": 325 } },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "Exact Toronto fill valve pricing is limited. Anchored to Toronto small visit minimums and toilet repair source ranges.",
+    "included": ["Replace fill valve", "Adjust water level", "Leak test"],
+    "notIncluded": ["Shutoff valve replacement", "Tank replacement", "Supply line unless added", "Toilet removal"],
+    "stopConditions": "Stop if shutoff valve will not close or leaks, supply nut is seized, tank porcelain is cracked, water damage is present, or toilet needs broader plumbing work.",
+    "sources": ["https://priorityplumbing.ca/plumbing/toilet-services", "https://modernize.com/plumbing/toilet-repair-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
+    "addOns": [{ "id": "flapper", "label": "Replace flapper too", "price": 25 }, { "id": "supply-line", "label": "Replace supply line", "price": 35 }]
+  },
+  {
+    "id": "toilet-flush-valve-replacement",
+    "category": "Plumbing fixtures and drains",
+    "name": "Toilet flush valve replacement",
+    "pricingUnit": "per toilet tank flush valve, tank may need removal, part extra",
+    "unitLabel": "valve",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 75,
+    "pricing": { "informal_floor": { "low": 90, "target": 125, "high": 160 }, "solo_freelancer": { "low": 150, "target": 200, "high": 275 }, "insured_company": { "low": 200, "target": 300, "high": 450 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Specific Toronto flush valve pricing is limited. Higher than fill valve because tank removal may be needed.",
+    "included": ["Replace flush valve", "Replace tank-to-bowl seal where applicable", "Leak test"],
+    "notIncluded": ["Toilet reset", "Broken tank bolts", "Tank/bowl replacement", "Flange/floor work"],
+    "stopConditions": "Stop if tank bolts are badly corroded, porcelain is cracked, tank is incompatible, shutoff leaks, or tank removal risks breaking the toilet.",
+    "sources": ["https://priorityplumbing.ca/plumbing/toilet-services", "https://modernize.com/plumbing/toilet-repair-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
+    "addOns": [{ "id": "new-fill-valve", "label": "Replace fill valve while open", "price": 60 }, { "id": "corroded-bolts", "label": "Corroded tank bolts", "price": 50 }]
+  },
+  {
+    "id": "toilet-handle-chain-flapper-repair",
+    "category": "Plumbing fixtures and drains",
+    "name": "Toilet handle, chain, or flapper replacement",
+    "pricingUnit": "per toilet, simple tank part repair, parts extra",
+    "unitLabel": "toilet",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 30,
+    "pricing": { "informal_floor": { "low": 50, "target": 75, "high": 100 }, "solo_freelancer": { "low": 85, "target": 110, "high": 150 }, "insured_company": { "low": 120, "target": 175, "high": 250 } },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "Simple toilet tank repair pricing inferred from Toronto small-job minimums and general toilet repair ranges.",
+    "included": ["Replace handle, chain, or flapper", "Adjust flush action", "Basic leak/running test"],
+    "notIncluded": ["Fill valve", "Flush valve", "Shutoff/supply repair", "Toilet removal"],
+    "stopConditions": "Stop if repair does not solve running/flush issue, tank parts are non-standard, shutoff leaks, or toilet needs fill/flush valve replacement.",
+    "sources": ["https://modernize.com/plumbing/toilet-repair-cost", "https://priorityplumbing.ca/plumbing/toilet-services", "https://buildman.ca/handyman-cost-toronto.html"],
+    "addOns": []
+  },
+  {
+    "id": "toilet-floor-flange-repair-replacement",
+    "category": "Referral and licensed work",
+    "name": "Toilet floor flange repair or replacement",
+    "pricingUnit": "referral only, depends on pipe/floor condition",
+    "unitLabel": "flange",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 0,
+    "pricing": { "informal_floor": { "low": 0, "target": 0, "high": 0 }, "solo_freelancer": { "low": 0, "target": 0, "high": 0 }, "insured_company": { "low": 250, "target": 450, "high": 900 } },
+    "materialAllowance": 0,
+    "tradeStatus": "do_not_accept",
+    "confidence": "medium",
+    "sourceConfidence": "Flange replacement can involve drain pipe, subfloor, leaks, and concealed damage. Use referral pricing only.",
+    "included": ["Referral guidance only"],
+    "notIncluded": ["Drain pipe repair", "Subfloor repair", "Toilet reset", "Leak damage"],
+    "stopConditions": "Do not accept if flange is cracked, loose, too low/high, corroded, connected to damaged pipe, or floor/subfloor is soft. Refer to plumber and possibly flooring repair.",
+    "sources": ["https://www.angi.com/articles/how-much-does-toilet-installation-cost.htm", "https://cityrooter.ca/plumber-cost"],
+    "addOns": []
+  },
+  {
+    "id": "vanity-sink-replacement",
+    "category": "Plumbing fixtures and drains",
+    "name": "Vanity sink replacement, same size and rough-in",
+    "pricingUnit": "per vanity sink, labour only, sink/faucet/drain parts extra",
+    "unitLabel": "sink",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 175,
+    "pricing": { "informal_floor": { "low": 150, "target": 225, "high": 300 }, "solo_freelancer": { "low": 250, "target": 350, "high": 500 }, "insured_company": { "low": 375, "target": 560, "high": 745 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Sink install comparison from Toronto plumber and Home Depot ranges. Handyman scope only for same-size visible replacement.",
+    "included": ["Remove old drop-in/vanity sink", "Install same-size replacement", "Reconnect visible drain and faucet if compatible"],
+    "notIncluded": ["Countertop cutting", "Vanity replacement", "Moving plumbing", "Stone cutting", "Hidden leaks"],
+    "stopConditions": "Stop if sink size does not match, countertop cutting is required, supply/drain locations need changes, shutoffs leak, drain piping is corroded, or concealed plumbing work is needed.",
+    "sources": ["https://cityrooter.ca/plumber-cost", "https://www.homedepot.com/services/c/cost-install-sink/482125d2a", "https://www.thumbtack.com/p/sink-repair-cost"],
+    "addOns": [{ "id": "remove-old-caulk", "label": "Remove old silicone/caulk", "price": 50 }, { "id": "connect-faucet", "label": "Install faucet with sink", "price": 100 }]
+  },
+  {
+    "id": "faucet-replacement-visible-shutoffs",
+    "category": "Plumbing fixtures and drains",
+    "name": "Bathroom or kitchen faucet replacement, visible shutoffs",
+    "pricingUnit": "per faucet, customer supplies faucet unless material cost is entered",
+    "unitLabel": "faucet",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 125,
+    "pricing": { "informal_floor": { "low": 125, "target": 175, "high": 225 }, "solo_freelancer": { "low": 175, "target": 250, "high": 350 }, "insured_company": { "low": 245, "target": 375, "high": 550 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Toronto plumber source lists faucet install from $245. Freelancer target is lower but requires working shutoffs and visible connections.",
+    "included": ["Remove old faucet", "Install compatible faucet", "Reconnect visible supply lines", "Leak test"],
+    "notIncluded": ["Replacing shutoff valves", "Moving lines", "Drain reconfiguration", "Countertop drilling"],
+    "stopConditions": "Confirm shutoffs work before starting. Stop if valves leak, lines are corroded, faucet holes do not match, water lines need alteration, or access is too tight/risky.",
+    "sources": ["https://cityrooter.ca/plumber-cost", "https://www.thumbtack.com/p/sink-repair-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
+    "addOns": [{ "id": "new-supply-lines", "label": "Replace supply lines", "price": 40 }, { "id": "seized-hardware", "label": "Seized/corroded hardware", "price": 75 }]
+  },
+  {
+    "id": "pop-up-po-plug-replacement",
+    "category": "Plumbing fixtures and drains",
+    "name": "Pop-up drain / PO plug replacement",
+    "pricingUnit": "per bathroom sink pop-up drain assembly, part extra",
+    "unitLabel": "drain",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 60,
+    "pricing": { "informal_floor": { "low": 80, "target": 110, "high": 150 }, "solo_freelancer": { "low": 125, "target": 175, "high": 250 }, "insured_company": { "low": 175, "target": 275, "high": 400 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Specific Toronto PO plug pricing is limited. Inferred from sink/faucet repair ranges and small plumbing visit minimums.",
+    "included": ["Remove old pop-up/PO plug", "Install compatible replacement", "Reconnect visible tailpiece/P-trap", "Leak test"],
+    "notIncluded": ["Faucet replacement", "Corroded drain piping", "Wall drain repair", "Vanity replacement"],
+    "stopConditions": "Stop if nut is seized, sink is cracked, drain body is corroded into place, P-trap/wall arm is rotten, or leak continues from concealed plumbing.",
+    "sources": ["https://www.thumbtack.com/p/sink-repair-cost", "https://cityrooter.ca/plumber-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
+    "addOns": [{ "id": "replace-p-trap", "label": "Replace P-trap at same time", "price": 75 }]
+  },
+  {
+    "id": "basket-strainer-replacement",
+    "category": "Plumbing fixtures and drains",
+    "name": "Kitchen sink basket strainer replacement",
+    "pricingUnit": "per basket strainer, part extra",
+    "unitLabel": "strainer",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 80,
+    "pricing": { "informal_floor": { "low": 100, "target": 140, "high": 190 }, "solo_freelancer": { "low": 150, "target": 225, "high": 325 }, "insured_company": { "low": 225, "target": 325, "high": 500 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Direct local basket strainer pricing is weak. Plumber and user-market comparisons suggest $200+ is common when billed professionally.",
+    "included": ["Remove old basket strainer", "Install compatible strainer", "Reconnect visible drain and leak test"],
+    "notIncluded": ["Garburator", "Dishwasher drain changes", "Corroded plumbing", "Sink removal"],
+    "stopConditions": "Stop if locknut is seized, sink is thin/rusted, garburator is attached, drain pipes are corroded, double-sink layout needs reconfiguration, or wall drain has issues.",
+    "sources": ["https://www.thumbtack.com/p/sink-repair-cost", "https://cityrooter.ca/plumber-cost", "Reddit user quote snippet for basket strainer, weak non-local sentiment"],
+    "addOns": [{ "id": "dual-bowl", "label": "Double-bowl drain complexity", "price": 75 }, { "id": "replace-p-trap", "label": "Replace P-trap", "price": 75 }]
+  },
+  {
+    "id": "p-trap-replacement-visible",
+    "category": "Plumbing fixtures and drains",
+    "name": "P-trap replacement under sink, visible piping",
+    "pricingUnit": "per sink P-trap, parts extra",
+    "unitLabel": "trap",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 65,
+    "pricing": { "informal_floor": { "low": 80, "target": 120, "high": 160 }, "solo_freelancer": { "low": 125, "target": 175, "high": 250 }, "insured_company": { "low": 200, "target": 300, "high": 450 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "medium",
+    "sourceConfidence": "Inferred from sink repair, drain cabling, and Toronto plumber small-job pricing.",
+    "included": ["Replace accessible P-trap", "Reconnect visible tubular drain", "Leak test"],
+    "notIncluded": ["Wall drain repair", "ABS/copper alterations", "Concealed plumbing", "Drain snaking unless added"],
+    "stopConditions": "Stop if wall arm is corroded, pipe breaks, drain pitch/layout is wrong, trap is glued ABS/copper beyond simple slip-joint replacement, or clog persists after replacement.",
+    "sources": ["https://www.thumbtack.com/p/sink-repair-cost", "https://cityrooter.ca/plumber-cost", "https://plumberdrainrepairs.com/blog/drain-snaking-toronto"],
+    "addOns": [{ "id": "minor-snake", "label": "Minor sink snake while trap is off", "price": 75 }]
+  },
+  {
+    "id": "faucet-aerator-replacement-cleaning",
+    "category": "Plumbing fixtures and drains",
+    "name": "Faucet aerator cleaning or replacement",
+    "pricingUnit": "per faucet aerator, simple removal/replacement, part extra",
+    "unitLabel": "aerator",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 15,
+    "pricing": { "informal_floor": { "low": 40, "target": 60, "high": 90 }, "solo_freelancer": { "low": 75, "target": 95, "high": 125 }, "insured_company": { "low": 100, "target": 150, "high": 225 } },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "Tiny standalone task, pricing driven by minimum visit or bundle. Use as add-on whenever possible.",
+    "included": ["Remove/clean or replace aerator", "Check flow after replacement"],
+    "notIncluded": ["Faucet cartridge", "Supply line work", "Whole faucet replacement", "Low pressure diagnosis"],
+    "stopConditions": "Stop if aerator is seized, threads strip, faucet body is corroded, low flow remains after cleaning, or broader plumbing diagnosis is needed.",
+    "sources": ["https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto", "https://buildman.ca/handyman-cost-toronto.html"],
+    "addOns": []
+  },
+  {
+    "id": "minor-sink-unplugging-hand-snake",
+    "category": "Plumbing fixtures and drains",
+    "name": "Minor sink unplugging with hand snake or trap cleanout",
+    "pricingUnit": "per sink, minor clog only, no main drain or machine auger",
+    "unitLabel": "sink",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 75,
+    "pricing": { "informal_floor": { "low": 90, "target": 125, "high": 175 }, "solo_freelancer": { "low": 125, "target": 175, "high": 250 }, "insured_company": { "low": 199, "target": 250, "high": 350 } },
+    "materialAllowance": 0,
+    "tradeStatus": "caution",
+    "confidence": "high",
+    "sourceConfidence": "Toronto drain snaking sources show basic drain snaking commonly around $99-$250+, kitchen sinks often higher. Freelancer scope should stay minor only.",
+    "included": ["Clear simple sink clog through trap or small hand snake", "Basic flow test", "Clean work area"],
+    "notIncluded": ["Main drain", "Hydro jetting", "Camera inspection", "Recurring clogs", "Machine auger", "Pipe repair"],
+    "stopConditions": "Stop if multiple fixtures are slow, water backs up elsewhere, main line is suspected, trap or pipe is corroded, clog does not clear quickly, chemical drain cleaner was used, or machine drain equipment is needed.",
+    "sources": ["https://plumberdrainrepairs.com/blog/drain-snaking-toronto", "https://properplumbinggta.com/blog/cost-to-unclog-drain-toronto", "https://cityrooter.ca/plumber-cost", "https://plumberdrainrepairs.com/blog/drain-cleaning-cost-toronto"],
+    "addOns": [{ "id": "replace-p-trap", "label": "Replace trap after cleanout", "price": 75 }]
+  }
+
+
+];
+
+export const categories = Array.from(new Set(serviceJobs.map((job) => job.category)));
