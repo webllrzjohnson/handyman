@@ -24,6 +24,7 @@ export type ServiceJob = {
   stopConditions: string;
   sources: string[];
   addOns: AddOn[];
+  imageUrl?: string;
 };
 
 export const pricingModes: Array<{ id: PricingMode; label: string; note: string; minimumVisit: number }> = [
@@ -238,7 +239,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://taskpin.co/services/door_repair",
       "https://www.homestars.com/handyman-services/locksmith-pros/toronto"
     ],
-    "addOns": []
+    "addOns": [],
+    "imageUrl": "https://images.unsplash.com/photo-1631885038374-f30c01a2b3e1?w=800&auto=format&fit=crop"
   },
   {
     "id": "deadbolt-replacement-in-existing-bore",
@@ -285,7 +287,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://matrixlocksmith.ca/locksmith-price-list-toronto/",
       "https://247gtalocksmith.com/blog/cost-of-changing-door-locks"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop"
   },
   {
     "id": "new-deadbolt-drilling-and-install",
@@ -332,7 +335,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://torontoconstructionnetwork.com/construction-brain/how-much-should-i-budget-for-deadbolt-lock-install-in-toront-3fb672",
       "https://www.homestars.com/handyman-services/locksmith-pros/toronto"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop"
   },
   {
     "id": "hinge-replacement",
@@ -379,7 +383,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://www.taskrabbit.ca/locations/toronto/door-repair",
       "https://www.taskrabbit.ca/cost-guides/general-handyman"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1504197885-c73788ef2150?w=800&auto=format&fit=crop"
   },
   {
     "id": "hinge-screw-repair-long-screws-plug-stripped-holes",
@@ -780,7 +785,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Door replacement", "Track replacement", "Major structural repairs", "Frame modifications"],
     "stopConditions": "Stop if doors are severely warped, frame is damaged, track is broken, or full door replacement is needed.",
     "sources": ["https://www.homestars.com/handyman-services/handyman-pros/toronto", "https://renohouse.ca/services/doors-windows/closet-doors"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop"
   },
   {
     "id": "sliding-closet-door-roller-track-repair",
@@ -828,7 +834,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Custom closet systems", "Wire shelving systems", "Built-in organizers", "Rod/shelf materials"],
     "stopConditions": "Stop if wall reinforcement needed, custom closet system installation, or structural changes required.",
     "sources": ["https://www.homestars.com/handyman-services/handyman-pros/toronto"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop"
   },
   {
     "id": "window-screen-mesh-replacement",
@@ -875,7 +882,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://revitalizewindowsanddoors.com/cost-to-repair-window-screen-mesh-in-the-gta/",
       "https://www.reddit.com/r/handyman/comments/1jzcie3/pricing_for_window_screen_replacement/ (weak sentiment)"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=800&auto=format&fit=crop"
   },
   {
     "id": "screen-door-mesh-repair-replacement",
@@ -1294,7 +1302,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://jan-handyman.com/interior-installation/curtain-blind-installation/",
       "https://homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop"
   },
   {
     "id": "shelves-small-wall-shelving",
@@ -1341,7 +1350,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://www.taskrabbit.com/blog/how-much-does-it-cost-to-hire-a-tasker/",
       "https://buildman.ca/tv-wall-mounting.html"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=800&auto=format&fit=crop"
   },
   {
     "id": "mirrors-pictures-artwork-hanging",
@@ -1388,7 +1398,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://www.taskrabbit.com/blog/how-much-does-it-cost-to-hire-a-tasker/",
       "https://www.taskrabbit.ca/locations/toronto/blinds-installation"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1513519245088-0e12902e35ca?w=800&auto=format&fit=crop"
   },
   {
     "id": "coat-hooks-towel-bars-small-holders",
@@ -1483,7 +1494,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://www.homeguide.com/costs/cost-to-install-cabinet-hardware",
       "Kijiji search snippets: Toronto handyman ads around $30-$50/hr"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?w=800&auto=format&fit=crop"
   },
   {
     "id": "cabinet-hinge-replacement-adjustment-including-soft-clos",
@@ -1578,7 +1590,8 @@ export const serviceJobs: ServiceJob[] = [
       "https://www.taskrabbit.ca/cost-guides/general-handyman",
       "https://buildman.ca/handyman-cost-toronto.html"
     ],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1620626011761-996317b8d101?w=800&auto=format&fit=crop"
   },
   {
     "id": "smoke-co-alarm-battery-replacement-only",
@@ -1962,7 +1975,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Opening devices", "Troubleshooting circuits", "Replacing wired fixtures or controls"],
     "stopConditions": "Any paid work touching house wiring, outlets, switches, GFCIs, dimmers, fixtures, panels, breakers, circuits, or hardwired devices should go to an ESA Licensed Electrical Contractor.",
     "sources": ["https://esasafe.com/consumer-protection/hire-licensed/", "https://esasafe.com/doing-electrical-work/"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=800&auto=format&fit=crop"
   },
   {
     "id": "gas-fuel-appliance-work",
@@ -2070,7 +2084,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Shutoff valve replacement", "Tank replacement", "Supply line unless added", "Toilet removal"],
     "stopConditions": "Stop if shutoff valve will not close or leaks, supply nut is seized, tank porcelain is cracked, water damage is present, or toilet needs broader plumbing work.",
     "sources": ["https://priorityplumbing.ca/plumbing/toilet-services", "https://modernize.com/plumbing/toilet-repair-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
-    "addOns": [{ "id": "flapper", "label": "Replace flapper too", "price": 25 }, { "id": "supply-line", "label": "Replace supply line", "price": 35 }]
+    "addOns": [{ "id": "flapper", "label": "Replace flapper too", "price": 25 }, { "id": "supply-line", "label": "Replace supply line", "price": 35 }],
+  "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&fit=crop"
   },
   {
     "id": "toilet-flush-valve-replacement",
@@ -2090,7 +2105,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Toilet reset", "Broken tank bolts", "Tank/bowl replacement", "Flange/floor work"],
     "stopConditions": "Stop if tank bolts are badly corroded, porcelain is cracked, tank is incompatible, shutoff leaks, or tank removal risks breaking the toilet.",
     "sources": ["https://priorityplumbing.ca/plumbing/toilet-services", "https://modernize.com/plumbing/toilet-repair-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
-    "addOns": [{ "id": "new-fill-valve", "label": "Replace fill valve while open", "price": 60 }, { "id": "corroded-bolts", "label": "Corroded tank bolts", "price": 50 }]
+    "addOns": [{ "id": "new-fill-valve", "label": "Replace fill valve while open", "price": 60 }, { "id": "corroded-bolts", "label": "Corroded tank bolts", "price": 50 }],
+  "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&fit=crop"
   },
   {
     "id": "toilet-handle-chain-flapper-repair",
@@ -2150,7 +2166,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Countertop cutting", "Vanity replacement", "Moving plumbing", "Stone cutting", "Hidden leaks"],
     "stopConditions": "Stop if sink size does not match, countertop cutting is required, supply/drain locations need changes, shutoffs leak, drain piping is corroded, or concealed plumbing work is needed.",
     "sources": ["https://cityrooter.ca/plumber-cost", "https://www.homedepot.com/services/c/cost-install-sink/482125d2a", "https://www.thumbtack.com/p/sink-repair-cost"],
-    "addOns": [{ "id": "remove-old-caulk", "label": "Remove old silicone/caulk", "price": 50 }, { "id": "connect-faucet", "label": "Install faucet with sink", "price": 100 }]
+    "addOns": [{ "id": "remove-old-caulk", "label": "Remove old silicone/caulk", "price": 50 }, { "id": "connect-faucet", "label": "Install faucet with sink", "price": 100 }],
+  "imageUrl": "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=800&auto=format&fit=crop"
   },
   {
     "id": "faucet-replacement-visible-shutoffs",
@@ -2170,7 +2187,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Replacing shutoff valves", "Moving lines", "Drain reconfiguration", "Countertop drilling"],
     "stopConditions": "Confirm shutoffs work before starting. Stop if valves leak, lines are corroded, faucet holes do not match, water lines need alteration, or access is too tight/risky.",
     "sources": ["https://cityrooter.ca/plumber-cost", "https://www.thumbtack.com/p/sink-repair-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
-    "addOns": [{ "id": "new-supply-lines", "label": "Replace supply lines", "price": 40 }, { "id": "seized-hardware", "label": "Seized/corroded hardware", "price": 75 }]
+    "addOns": [{ "id": "new-supply-lines", "label": "Replace supply lines", "price": 40 }, { "id": "seized-hardware", "label": "Seized/corroded hardware", "price": 75 }],
+  "imageUrl": "https://images.unsplash.com/photo-1585313647787-3a1b5ef55b66?w=800&auto=format&fit=crop"
   },
   {
     "id": "pop-up-po-plug-replacement",
@@ -2290,7 +2308,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Bracket", "In-wall power or electrical work", "Brick, concrete, stone, fireplace, or metal studs", "TV over 65 in or two-person lift"],
     "stopConditions": "Stop if stud layout is unsuitable, wall condition is unsafe, concealed wiring/plumbing risk is detected, bracket is incompatible, or the TV requires a two-person lift.",
     "sources": ["https://renohouse.ca/blog/handyman-prices-list-toronto", "https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada", "https://www.getahomepro.co/blog/handyman-cost-toronto-ontario"],
-    "addOns": [{ "id": "tv-soundbar", "label": "Mount soundbar below TV", "price": 60 }, { "id": "tv-surface-raceway", "label": "Install paintable surface cable raceway", "price": 45 }]
+    "addOns": [{ "id": "tv-soundbar", "label": "Mount soundbar below TV", "price": 60 }, { "id": "tv-surface-raceway", "label": "Install paintable surface cable raceway", "price": 45 }],
+  "imageUrl": "https://images.unsplash.com/photo-1593784991095-a205069470b6?w=800&auto=format&fit=crop"
   },
   {
     "id": "drywall-small-hole-patch-ready-for-paint",
@@ -2310,7 +2329,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Painting", "Texture matching", "Water-damage remediation", "Ceiling work", "Large or multiple damaged areas"],
     "stopConditions": "Stop if moisture, mould, active leakage, asbestos risk, extensive cracking, loose plaster, or structural movement is suspected.",
     "sources": ["https://renohouse.ca/blog/handyman-prices-list-toronto", "https://www.getahomepro.co/blog/handyman-cost-toronto-ontario", "https://www.amaximumconstruction.com/handyman-charges/"],
-    "addOns": [{ "id": "drywall-prime", "label": "Spot-prime completed patch", "price": 40 }, { "id": "drywall-paint-touchup", "label": "Paint touch-up with client-supplied matching paint", "price": 65 }]
+    "addOns": [{ "id": "drywall-prime", "label": "Spot-prime completed patch", "price": 40 }, { "id": "drywall-paint-touchup", "label": "Paint touch-up with client-supplied matching paint", "price": 65 }],
+  "imageUrl": "https://images.unsplash.com/photo-1581094271901-8022df4466f9?w=800&auto=format&fit=crop"
   },
   {
     "id": "bathtub-shower-recaulking",
@@ -2330,7 +2350,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Grout repair", "Mould remediation", "Leak investigation", "Shower-door removal", "Tile or substrate repair"],
     "stopConditions": "Stop if the wall is soft, tile is loose, mould extends behind finishes, active leakage exists, or the joint is too wide for caulk alone.",
     "sources": ["https://renohouse.ca/blog/handyman-prices-list-toronto", "https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada", "https://www.fix-it-friend.com/toronto-handyman-services2"],
-    "addOns": [{ "id": "caulk-glass-joints", "label": "Re-caulk accessible glass-shower joints", "price": 85 }]
+    "addOns": [{ "id": "caulk-glass-joints", "label": "Re-caulk accessible glass-shower joints", "price": 85 }],
+  "imageUrl": "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=800&auto=format&fit=crop"
   },
   {
     "id": "shower-head-replacement",
@@ -2350,7 +2371,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Valve or cartridge work", "Shower arm replacement inside wall", "New plumbing", "Tile opening"],
     "stopConditions": "Stop if the shower arm turns in the wall, threads are damaged, concealed leakage is suspected, or valve/plumbing work is required.",
     "sources": ["https://renohouse.ca/blog/handyman-home-maintenance-guide-toronto", "https://www.fix-it-friend.com/toronto-handyman-services2"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1625699340320-9ed0198d6b0f?w=800&auto=format&fit=crop"
   },
   {
     "id": "interior-door-slab-install-existing-frame",
@@ -2390,7 +2412,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Large wardrobes", "Murphy beds", "Missing hardware", "Disposal of packaging", "Wall modification"],
     "stopConditions": "Stop if parts are missing/damaged, instructions are unavailable, anchoring surface is unsafe, or assembly requires a second person or specialist installation.",
     "sources": ["https://renohouse.ca/blog/handyman-prices-list-toronto", "https://www.getahomepro.co/blog/handyman-cost-toronto-ontario"],
-    "addOns": [{ "id": "assembly-packaging", "label": "Break down and bag packaging", "price": 35 }]
+    "addOns": [{ "id": "assembly-packaging", "label": "Break down and bag packaging", "price": 35 }],
+  "imageUrl": "https://images.unsplash.com/photo-1582037928769-181f2644ecb7?w=800&auto=format&fit=crop"
   },
   {
     "id": "baseboard-trim-minor-repair",
@@ -2430,7 +2453,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Two-storey or roof access", "Gutter repair", "Guards", "Frozen gutters", "Blocked underground drains"],
     "stopConditions": "Do not proceed in unsafe weather, near electrical hazards, on unstable ground, above one storey, or where ladder setup and fall protection are inadequate.",
     "sources": ["https://renohouse.ca/blog/handyman-prices-list-toronto", "https://www.getahomepro.co/blog/handyman-cost-toronto-ontario", "https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop"
   },
   {
     "id": "dryer-vent-cleaning-accessible",
@@ -2473,7 +2497,8 @@ export const serviceJobs: ServiceJob[] = [
     "addOns": [
       { "id": "paint-primer", "label": "Apply primer coat", "price": 85 },
       { "id": "paint-trim-door", "label": "Paint trim and door in same room", "price": 120 }
-    ]
+    ],
+  "imageUrl": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800&auto=format&fit=crop"
   },
   {
     "id": "accent-wall-painting",
@@ -2493,7 +2518,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Primer", "Extensive patching", "Textured finishes", "Paint supply"],
     "stopConditions": "Stop if wall requires extensive prep, texture matching is needed, or existing finish is incompatible with new paint.",
     "sources": ["https://www.homepainterspro.ca/blogs/cost-to-paint-a-house-toronto/"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1562259929-1dd9e4e7e65d?w=800&auto=format&fit=crop"
   },
   {
     "id": "grab-bar-installation-studs",
@@ -2513,7 +2539,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Tile drilling", "Blocking installation", "Drywall opening and patching", "Multiple-bar layout consultation", "Bar supply"],
     "stopConditions": "Stop if no studs are accessible at desired location, tile drilling is required, or blocking must be installed behind drywall.",
     "sources": ["https://goodcompanyhome.com/grab-bar-installation-cost-toronto/", "https://renohouse.ca/blog/grab-bar-installation-toronto-bathroom"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&fit=crop"
   },
   {
     "id": "grab-bar-installation-anchors",
@@ -2533,7 +2560,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Blocking installation behind drywall", "Tile drilling", "Structural backup if wall cannot support load", "Bar supply"],
     "stopConditions": "Stop if wall structure cannot safely support grab bar load, blocking installation is required, or tile/stone surface needs drilling.",
     "sources": ["https://goodcompanyhome.com/grab-bar-installation-cost-toronto/", "https://renohouse.ca/blog/grab-bar-installation-toronto-bathroom"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&fit=crop"
   },
   {
     "id": "vinyl-laminate-plank-replacement",
@@ -2555,7 +2583,8 @@ export const serviceJobs: ServiceJob[] = [
     "sources": ["https://nedesestimating.com/cost-to-repair-vinyl-plank-flooring/", "https://renohouse.ca/services/flooring/floor-repair"],
     "addOns": [
       { "id": "floor-transition", "label": "Replace or adjust transition strip", "price": 65 }
-    ]
+    ],
+  "imageUrl": "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=800&auto=format&fit=crop"
   },
   {
     "id": "hardwood-spot-repair",
@@ -2575,7 +2604,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Full room refinishing", "Subfloor repair", "Complex inlay patterns", "Material supply if not provided"],
     "stopConditions": "Stop if subfloor damage exists, matching material is unavailable, extensive refinishing is needed, or water damage is widespread.",
     "sources": ["https://renohouse.ca/services/flooring/floor-repair"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1534237886190-ced735ca4b73?w=800&auto=format&fit=crop"
   },
   {
     "id": "kitchen-backsplash-tile-repair",
@@ -2595,7 +2625,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Full backsplash replacement", "Electrical work around outlets", "Extensive water damage repair", "Material supply if not provided"],
     "stopConditions": "Stop if matching tile is unavailable, substrate damage is extensive, electrical work is needed, or mold is present.",
     "sources": ["https://primetiling.ca/pricing-guide"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800&auto=format&fit=crop"
   },
   {
     "id": "backsplash-grout-recaulk",
@@ -2615,7 +2646,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Full tile re-grouting", "Extensive mold remediation", "Tile repair or replacement"],
     "stopConditions": "Stop if mold is extensive, tiles are loose or damaged, or substrate prep is needed.",
     "sources": ["https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800&auto=format&fit=crop"
   },
   {
     "id": "deck-board-replacement-small",
@@ -2637,7 +2669,8 @@ export const serviceJobs: ServiceJob[] = [
     "sources": ["https://meandmyvan.com/how-much-does-deck-repair-cost-in-the-gta-in-2026/", "https://renohouse.ca/services/exterior/deck-repair"],
     "addOns": [
       { "id": "deck-stain", "label": "Apply stain or sealer to repaired area", "price": 75 }
-    ]
+    ],
+  "imageUrl": "https://images.unsplash.com/photo-1600585152220-90363fe7e115?w=800&auto=format&fit=crop"
   },
   {
     "id": "fence-picket-board-replacement",
@@ -2657,7 +2690,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Post repair or replacement", "Structural work", "Full panel replacement", "Staining or painting", "Material supply if not provided"],
     "stopConditions": "Stop if posts are damaged or leaning, rails need replacement, structural issues exist, or extensive rot is present.",
     "sources": ["https://handymantorontodowntown.ca/2026/07/28/fence-repair-costs-what-you-should-expect-to-pay-in-2026/", "https://homeguide.com/costs/fence-repair-cost"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=800&auto=format&fit=crop"
   },
   {
     "id": "fence-post-repair-replacement",
@@ -2717,7 +2751,8 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Sealing", "Stain removal", "Structural repair", "Extensive oil stain treatment"],
     "stopConditions": "Stop if surface is severely damaged, water access is unavailable, or environmental restrictions apply.",
     "sources": ["https://urbantasker.com/blog/how-much-does-handyman-cost-in-greater-toronto-area-gta-ontario-canada"],
-    "addOns": []
+    "addOns": [],
+  "imageUrl": "https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?w=800&auto=format&fit=crop"
   },
   {
     "id": "pressure-washing-deck",

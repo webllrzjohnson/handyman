@@ -501,6 +501,17 @@ export default function Home() {
                   );
                 })}
               </select>
+              
+              {job.imageUrl && (
+                <div className="mt-4 overflow-hidden rounded-xl border-2 border-blue-200">
+                  <img 
+                    src={job.imageUrl} 
+                    alt={job.name}
+                    className="h-48 w-full object-cover"
+                  />
+                </div>
+              )}
+              
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${tradeStyles[job.tradeStatus]}`}>
                   {tradeLabels[job.tradeStatus]}
