@@ -54,6 +54,7 @@ type QuoteCartItem = {
   materialMarkupPercent: number;
   materialPickupFee: number;
   selectedAddOnIds: string[];
+  location: string; // Track which room/area
 };
 
 export default function Home() {
@@ -228,6 +229,12 @@ export default function Home() {
 
   function addToQuote() {
     if (!previewQuote.isQuotable) return;
+    
+    const location = findJobLocation(job.id);
+    const locationLabel = location 
+      ? `${location.room.name} - ${location.area.name}`
+      : "Other";
+    
     setCart((current) => [
       ...current,
       {
@@ -240,6 +247,7 @@ export default function Home() {
         materialMarkupPercent,
         materialPickupFee,
         selectedAddOnIds: selectedAddOns,
+        location: locationLabel,
       },
     ]);
     setSelectedAddOns([]);
@@ -326,17 +334,25 @@ export default function Home() {
       if (foundParking) setParkingId(foundParking.id);
       if (foundAccess) setAccessId(foundAccess.id);
       
-      const loadedCart = items.map((item: any) => ({
-        id: `${item.jobId}-${item.id}`,
-        jobId: item.jobId,
-        quantity: item.quantity,
-        conditionId: item.conditionId,
-        materialId: "standard-pickup",
-        materialCost: item.materialCost,
-        materialMarkupPercent: item.materialMarkupPercent,
-        materialPickupFee: item.materialPickupFee,
-        selectedAddOnIds: JSON.parse(item.selectedAddOnIds || "[]"),
-      }));
+      const loadedCart = items.map((item: any) => {
+        const location = findJobLocation(item.jobId);
+        const locationLabel = location 
+          ? `${location.room.name} - ${location.area.name}`
+          : "Other";
+        
+        return {
+          id: `${item.jobId}-${item.id}`,
+          jobId: item.jobId,
+          quantity: item.quantity,
+          conditionId: item.conditionId,
+          materialId: "standard-pickup",
+          materialCost: item.materialCost,
+          materialMarkupPercent: item.materialMarkupPercent,
+          materialPickupFee: item.materialPickupFee,
+          selectedAddOnIds: JSON.parse(item.selectedAddOnIds || "[]"),
+          location: locationLabel,
+        };
+      });
       
       setCart(loadedCart);
       setShowHistory(false);
@@ -605,23 +621,56 @@ export default function Home() {
                 <h2 className="font-semibold text-cyan-200">Job cart</h2>
                 {cart.length ? <button type="button" onClick={() => setCart([])} className="text-xs font-bold text-red-300">Clear</button> : null}
               </div>
+              
+              {cart.length > 0 && (
+                <div className="mt-3 rounded-xl border border-amber-600 bg-amber-950/30 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-amber-300">Multi-Room Visit Pricing</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-200">
+                    Travel, parking, and access charges apply ONCE per visit, no matter how many rooms. Each job is priced separately.
+                  </p>
+                </div>
+              )}
+
               <div className="mt-3 space-y-3 text-sm text-slate-300">
-                {invoice.jobLines.length ? invoice.jobLines.map((line) => (
-                  <div key={line.id} className="rounded-2xl bg-slate-900 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-slate-100">{line.job.name}</p>
-                        <p className="mt-1 text-slate-400">{line.quantity} {line.job.unitLabel}{line.quantity === 1 ? "" : "s"}, {line.conditionLabel}</p>
-                        {line.addOnLabels.length ? <p className="mt-1 text-slate-400">Same-fixture add-ons: {line.addOnLabels.join(", ")} ({currency.format(line.addOns)})</p> : null}
-                        {line.materialSubtotal > 0 ? <p className="mt-1 text-slate-400">Materials: {currency.format(line.materialCost)} + {currency.format(line.materialMarkup)} markup + {currency.format(line.materialPickupFee)} pickup</p> : null}
+                {invoice.jobLines.length ? (() => {
+                  // Group jobs by location
+                  const grouped: Record<string, typeof invoice.jobLines> = {};
+                  invoice.jobLines.forEach(line => {
+                    const cartItem = cart.find(c => c.id === line.id);
+                    const location = cartItem?.location || "Other";
+                    if (!grouped[location]) grouped[location] = [];
+                    grouped[location].push(line);
+                  });
+
+                  return Object.entries(grouped).map(([location, lines]) => (
+                    <div key={location} className="rounded-2xl border border-slate-700 bg-slate-900/50 p-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="rounded-full bg-blue-600 px-3 py-1 text-xs font-bold text-white">
+                          📍 {location}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {lines.length} job{lines.length === 1 ? "" : "s"}
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <p className="font-black text-cyan-200">{currency.format(line.lineSubtotal)}</p>
-                        <button type="button" className="mt-2 text-xs font-bold text-red-300" onClick={() => removeFromQuote(line.id)}>Remove</button>
-                      </div>
+                      {lines.map((line) => (
+                        <div key={line.id} className="mt-2 rounded-xl bg-slate-900 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-bold text-slate-100">{line.job.name}</p>
+                              <p className="mt-1 text-slate-400">{line.quantity} {line.job.unitLabel}{line.quantity === 1 ? "" : "s"}, {line.conditionLabel}</p>
+                              {line.addOnLabels.length ? <p className="mt-1 text-slate-400">Same-fixture add-ons: {line.addOnLabels.join(", ")} ({currency.format(line.addOns)})</p> : null}
+                              {line.materialSubtotal > 0 ? <p className="mt-1 text-slate-400">Materials: {currency.format(line.materialCost)} + {currency.format(line.materialMarkup)} markup + {currency.format(line.materialPickupFee)} pickup</p> : null}
+                            </div>
+                            <div className="text-right">
+                              <p className="font-black text-cyan-200">{currency.format(line.lineSubtotal)}</p>
+                              <button type="button" className="mt-2 text-xs font-bold text-red-300" onClick={() => removeFromQuote(line.id)}>Remove</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                )) : <p className="rounded-2xl border border-dashed border-slate-700 p-4 text-slate-400">Add jobs to build a quote. Shared travel, parking, access, urgency, and HST apply once.</p>}
+                  ));
+                })() : <p className="rounded-2xl border border-dashed border-slate-700 p-4 text-slate-400">Add jobs to build a quote. Shared travel, parking, access, urgency, and HST apply once.</p>}
               </div>
               {invoice.hasBlockedJobs ? <p className="mt-3 rounded-xl bg-red-950 p-3 text-sm text-red-100">Blocked jobs were excluded: {invoice.blockedJobNames.join(", ")}</p> : null}
             </div>
@@ -715,6 +764,30 @@ export default function Home() {
                 <div className="flex justify-between gap-4 py-2 text-lg"><span className="font-black">Total</span><span className="font-black text-cyan-200">{currency.format(invoice.total)}</span></div>
               </div>
               <p className="mt-4 text-xs leading-5 text-slate-500">Notes: Quote assumes visible scope only. Hidden damage, unsafe conditions, incorrect parts, or licensed trade work may change the price or require referral.</p>
+            </div>
+
+            <div className="rounded-2xl border border-blue-600 bg-blue-950/30 p-4">
+              <h2 className="font-semibold text-blue-200">💡 Charging Strategy</h2>
+              <div className="mt-3 space-y-3 text-xs leading-5 text-blue-100">
+                <div>
+                  <p className="font-bold text-blue-200">Same House, Multiple Rooms:</p>
+                  <p className="text-blue-100">✓ Travel/parking/access charged ONCE per visit</p>
+                  <p className="text-blue-100">✓ Each room's work priced separately</p>
+                  <p className="text-blue-100">✓ Example: Bedroom door + Kitchen faucet = 1 visit charge + 2 job charges</p>
+                </div>
+                <div>
+                  <p className="font-bold text-blue-200">Same Room, Multiple Fixtures:</p>
+                  <p className="text-blue-100">✓ Use same-fixture add-ons when working on same fixture</p>
+                  <p className="text-blue-100">✓ Add separate jobs for different fixtures in same room</p>
+                  <p className="text-blue-100">✓ Example: Bathroom = Toilet seat (main) + fill valve (add-on) + Sink faucet (separate job)</p>
+                </div>
+                <div>
+                  <p className="font-bold text-blue-200">Same Fixture, Multiple Tasks:</p>
+                  <p className="text-blue-100">✓ Always use same-fixture add-ons</p>
+                  <p className="text-blue-100">✓ More efficient, saves client money</p>
+                  <p className="text-blue-100">✓ Example: Door knob replacement + hinges + weather strip = main job + add-ons</p>
+                </div>
+              </div>
             </div>
 
             <InfoBlock title="Client message" items={[clientMessage]} />
