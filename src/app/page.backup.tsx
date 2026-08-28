@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   getSameFixtureAddOns,
   accessOptions,
@@ -17,7 +17,6 @@ import {
   type TradeStatus,
 } from "@/lib/service-catalog";
 import { calculateMultiJobQuote, calculateQuote, type CartJobInput } from "@/lib/pricing-engine";
-import * as api from "@/lib/api-client";
 
 const currency = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 
@@ -78,51 +77,6 @@ export default function Home() {
   const [clientAddress, setClientAddress] = useState("");
   const [quoteNumber, setQuoteNumber] = useState(() => `Q-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`);
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
-  
-  // Database features
-  const [currentQuoteId, setCurrentQuoteId] = useState<number | null>(null);
-  const [quoteStatus, setQuoteStatus] = useState<string>("draft");
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [clients, setClients] = useState<any[]>([]);
-  const [quotes, setQuotes] = useState<any[]>([]);
-  const [completions, setCompletions] = useState<any[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showClients, setShowClients] = useState(false);
-  const [showTracking, setShowTracking] = useState(false);
-  const [showReports, setShowReports] = useState(false);
-
-  useEffect(() => {
-    loadClients();
-    loadQuotes();
-    loadCompletions();
-  }, []);
-
-  async function loadClients() {
-    try {
-      const data = await api.fetchClients();
-      setClients(data);
-    } catch (error) {
-      console.error("Error loading clients:", error);
-    }
-  }
-
-  async function loadQuotes() {
-    try {
-      const data = await api.fetchQuotes();
-      setQuotes(data);
-    } catch (error) {
-      console.error("Error loading quotes:", error);
-    }
-  }
-
-  async function loadCompletions() {
-    try {
-      const data = await api.fetchCompletions();
-      setCompletions(data);
-    } catch (error) {
-      console.error("Error loading completions:", error);
-    }
-  }
 
   const counts = useMemo(
     () => serviceJobs.reduce((acc, item) => ({ ...acc, [item.tradeStatus]: acc[item.tradeStatus] + 1 }), { handyman_ok: 0, caution: 0, licensed_required: 0, do_not_accept: 0 } as Record<TradeStatus, number>),
@@ -231,111 +185,6 @@ export default function Home() {
 
   function toggleAddOn(id: string) {
     setSelectedAddOns((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
-  }
-
-  async function saveQuote() {
-    try {
-      const quoteData = {
-        quoteNumber,
-        clientId: selectedClientId,
-        clientName,
-        clientAddress,
-        status: quoteStatus,
-        pricingMode,
-        travelAmount: travel.amount,
-        parkingAmount: parking.amount,
-        accessAmount: access.amount,
-        urgencyType: urgency.type,
-        urgencyAmount: urgency.amount,
-        hstPercent,
-        subtotal: invoice.subtotal,
-        tax: invoice.tax,
-        total: invoice.total,
-      };
-
-      const items = cartInputs.map((item) => ({
-        jobId: item.job.id,
-        jobName: item.job.name,
-        jobCategory: item.job.category,
-        quantity: item.quantity,
-        conditionId: cart.find((c) => c.id === item.id)?.conditionId || "normal",
-        conditionLabel: item.conditionLabel,
-        conditionAmount: item.conditionAmount,
-        materialCost: item.materialCost,
-        materialMarkupPercent: item.materialMarkupPercent,
-        materialPickupFee: item.materialPickupFee,
-        selectedAddOnIds: JSON.stringify(item.selectedAddOnIds),
-        lineSubtotal: invoice.jobLines.find((line) => line.id === item.id)?.lineSubtotal ?? 0,
-      }));
-
-      if (currentQuoteId) {
-        await api.updateQuote(currentQuoteId, { quote: quoteData, items });
-        alert("Quote updated successfully!");
-      } else {
-        const saved = await api.createQuote({ quote: quoteData, items });
-        setCurrentQuoteId(saved.id);
-        alert("Quote saved successfully!");
-      }
-      
-      await loadQuotes();
-    } catch (error) {
-      console.error("Error saving quote:", error);
-      alert("Failed to save quote. Make sure you have items in the cart.");
-    }
-  }
-
-  async function loadQuote(quoteId: number) {
-    try {
-      const { quote, items } = await api.fetchQuote(quoteId);
-      
-      setQuoteNumber(quote.quoteNumber);
-      setClientName(quote.clientName);
-      setClientAddress(quote.clientAddress || "");
-      setSelectedClientId(quote.clientId);
-      setPricingMode(quote.pricingMode);
-      setHstPercent(quote.hstPercent);
-      setQuoteStatus(quote.status);
-      setCurrentQuoteId(quote.id);
-      
-      // Find travel, parking, access options
-      const foundTravel = travelOptions.find(opt => opt.amount === quote.travelAmount);
-      const foundParking = parkingOptions.find(opt => opt.amount === quote.parkingAmount);
-      const foundAccess = accessOptions.find(opt => opt.amount === quote.accessAmount);
-      
-      if (foundTravel) setTravelId(foundTravel.id);
-      if (foundParking) setParkingId(foundParking.id);
-      if (foundAccess) setAccessId(foundAccess.id);
-      
-      const loadedCart = items.map((item: any) => ({
-        id: `${item.jobId}-${item.id}`,
-        jobId: item.jobId,
-        quantity: item.quantity,
-        conditionId: item.conditionId,
-        materialId: "standard-pickup",
-        materialCost: item.materialCost,
-        materialMarkupPercent: item.materialMarkupPercent,
-        materialPickupFee: item.materialPickupFee,
-        selectedAddOnIds: JSON.parse(item.selectedAddOnIds || "[]"),
-      }));
-      
-      setCart(loadedCart);
-      setShowHistory(false);
-      alert("Quote loaded successfully!");
-    } catch (error) {
-      console.error("Error loading quote:", error);
-      alert("Failed to load quote");
-    }
-  }
-
-  function newQuote() {
-    setCart([]);
-    setClientName("");
-    setClientAddress("");
-    setSelectedClientId(null);
-    setCurrentQuoteId(null);
-    setQuoteStatus("draft");
-    setQuoteNumber(`Q-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`);
-    setShowHistory(false);
   }
 
   const clientMessage = cart.length
@@ -465,33 +314,6 @@ export default function Home() {
 
             <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
               <h2 className="font-semibold text-cyan-200">Client and tax</h2>
-              {clients.length > 0 && (
-                <div className="mt-3">
-                  <label className="text-sm font-semibold text-slate-300">Select existing client (optional)</label>
-                  <select
-                    value={selectedClientId || ""}
-                    onChange={(e) => {
-                      const id = e.target.value ? Number(e.target.value) : null;
-                      setSelectedClientId(id);
-                      if (id) {
-                        const client = clients.find(c => c.id === id);
-                        if (client) {
-                          setClientName(client.name);
-                          setClientAddress(client.address || "");
-                        }
-                      }
-                    }}
-                    className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100"
-                  >
-                    <option value="">New client...</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <DarkTextBox id="client-name" label="Client name" value={clientName} onChange={setClientName} placeholder="Client" />
                 <DarkTextBox id="quote-number" label="Quote/invoice #" value={quoteNumber} onChange={setQuoteNumber} placeholder="Q-001" />
@@ -530,67 +352,6 @@ export default function Home() {
 
             <QuoteTotals invoice={invoice} />
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-              <h2 className="font-semibold text-cyan-200">Quote Management</h2>
-              <div className="mt-3">
-                <label className="text-sm font-semibold text-slate-300">Status</label>
-                <select
-                  value={quoteStatus}
-                  onChange={(e) => setQuoteStatus(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="sent">Sent</option>
-                  <option value="approved">Approved</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={saveQuote}
-                  disabled={cart.length === 0}
-                  className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {currentQuoteId ? "Update Quote" : "Save Quote"}
-                </button>
-                <button
-                  type="button"
-                  onClick={newQuote}
-                  className="rounded-2xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-800"
-                >
-                  New
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowHistory(true)}
-                  className="rounded-2xl border border-cyan-600 px-5 py-3 text-sm font-bold text-cyan-300 transition hover:bg-cyan-950"
-                >
-                  History ({quotes.length})
-                </button>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowTracking(true)}
-                  className="rounded-xl border border-emerald-600 px-4 py-2 text-xs font-bold text-emerald-300 transition hover:bg-emerald-950"
-                >
-                  Job Tracking ({completions.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowReports(true)}
-                  className="rounded-xl border border-amber-600 px-4 py-2 text-xs font-bold text-amber-300 transition hover:bg-amber-950"
-                >
-                  Reports
-                </button>
-              </div>
-              {currentQuoteId && (
-                <p className="mt-3 text-xs text-slate-500">Editing quote ID: {currentQuoteId}</p>
-              )}
-            </div>
-
             <div className="no-print flex flex-wrap gap-3">
               <button type="button" onClick={() => window.print()} disabled={!cart.length} className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400">
                 Print / save PDF invoice
@@ -625,181 +386,6 @@ export default function Home() {
           </aside>
         </div>
       </section>
-
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowHistory(false)}>
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-cyan-300">Quote History</h2>
-              <button onClick={() => setShowHistory(false)} className="rounded-xl px-4 py-2 text-lg font-bold text-slate-400 hover:text-slate-200">✕</button>
-            </div>
-            <div className="mt-6 space-y-3">
-              {quotes.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-400">
-                  No saved quotes yet. Create and save a quote to see it here.
-                </p>
-              ) : (
-                quotes.map((quote) => (
-                  <div key={quote.id} className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="font-bold text-cyan-200">{quote.quoteNumber}</p>
-                        <p className="mt-1 text-sm text-slate-400">{quote.clientName}</p>
-                        {quote.clientAddress && <p className="text-sm text-slate-400">{quote.clientAddress}</p>}
-                        <div className="mt-2 flex flex-wrap items-center gap-3">
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            quote.status === "approved" ? "bg-emerald-950 text-emerald-300" :
-                            quote.status === "sent" ? "bg-cyan-950 text-cyan-300" :
-                            quote.status === "completed" ? "bg-blue-950 text-blue-300" :
-                            quote.status === "cancelled" ? "bg-red-950 text-red-300" :
-                            "bg-slate-800 text-slate-300"
-                          }`}>
-                            {quote.status}
-                          </span>
-                          <span className="text-sm text-slate-500">
-                            {new Date(quote.createdAt).toLocaleDateString("en-CA")}
-                          </span>
-                        </div>
-                        <p className="mt-3 text-lg font-bold text-slate-100">{currency.format(quote.total)}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadQuote(quote.id)}
-                          className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
-                        >
-                          Load
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this quote?")) {
-                              await api.deleteQuote(quote.id);
-                              await loadQuotes();
-                            }
-                          }}
-                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-500"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showTracking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowTracking(false)}>
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-cyan-300">Job Completion Tracking</h2>
-              <button onClick={() => setShowTracking(false)} className="rounded-xl px-4 py-2 text-lg font-bold text-slate-400 hover:text-slate-200">✕</button>
-            </div>
-            <p className="mt-2 text-sm text-slate-400">Track actual costs and time vs estimates. Mark quotes as completed, then log actual values here.</p>
-            <div className="mt-6 space-y-3">
-              {completions.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-400">
-                  No completed jobs tracked yet. Save this feature for after you complete jobs.
-                </p>
-              ) : (
-                completions.map((completion) => (
-                  <div key={completion.id} className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                    <p className="font-bold text-cyan-200">{completion.jobName}</p>
-                    <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-slate-500">Estimated:</p>
-                        <p className="font-bold text-slate-100">{currency.format(completion.estimatedCost)}</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-500">Actual:</p>
-                        <p className="font-bold text-slate-100">{completion.actualTotalCost ? currency.format(completion.actualTotalCost) : "—"}</p>
-                      </div>
-                      {completion.variance !== null && (
-                        <div className="col-span-2">
-                          <p className="text-slate-500">Variance:</p>
-                          <p className={`text-lg font-bold ${completion.variance > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                            {completion.variance > 0 ? "+" : ""}{currency.format(completion.variance)} ({completion.variancePercent?.toFixed(1)}%)
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showReports && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowReports(false)}>
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-cyan-300">Pricing Accuracy Reports</h2>
-              <button onClick={() => setShowReports(false)} className="rounded-xl px-4 py-2 text-lg font-bold text-slate-400 hover:text-slate-200">✕</button>
-            </div>
-            {(() => {
-              const completedJobs = completions.filter((c) => c.actualTotalCost !== null);
-              const totalVariance = completedJobs.reduce((sum, c) => sum + (c.variance || 0), 0);
-              const avgVariancePercent = completedJobs.length > 0
-                ? completedJobs.reduce((sum, c) => sum + (c.variancePercent || 0), 0) / completedJobs.length
-                : 0;
-              const underEstimated = completedJobs.filter(c => (c.variance || 0) > 0).length;
-              const overEstimated = completedJobs.filter(c => (c.variance || 0) < 0).length;
-              const accurate = completedJobs.filter(c => Math.abs(c.variancePercent || 0) < 10).length;
-
-              return (
-                <>
-                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                      <p className="text-sm text-slate-500">Completed Jobs</p>
-                      <p className="mt-2 text-3xl font-black text-cyan-200">{completedJobs.length}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                      <p className="text-sm text-slate-500">Total Variance</p>
-                      <p className={`mt-2 text-3xl font-black ${totalVariance > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                        {totalVariance > 0 ? "+" : ""}{currency.format(totalVariance)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                      <p className="text-sm text-slate-500">Avg Variance %</p>
-                      <p className={`mt-2 text-3xl font-black ${avgVariancePercent > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                        {avgVariancePercent > 0 ? "+" : ""}{avgVariancePercent.toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-red-700 bg-red-950/30 p-4">
-                      <p className="text-sm text-red-300">Under-estimated</p>
-                      <p className="mt-2 text-2xl font-bold text-red-200">{underEstimated} jobs</p>
-                      <p className="mt-1 text-xs text-red-400">Cost more than quoted</p>
-                    </div>
-                    <div className="rounded-2xl border border-emerald-700 bg-emerald-950/30 p-4">
-                      <p className="text-sm text-emerald-300">Accurate (±10%)</p>
-                      <p className="mt-2 text-2xl font-bold text-emerald-200">{accurate} jobs</p>
-                      <p className="mt-1 text-xs text-emerald-400">Within 10% of estimate</p>
-                    </div>
-                    <div className="rounded-2xl border border-amber-700 bg-amber-950/30 p-4">
-                      <p className="text-sm text-amber-300">Over-estimated</p>
-                      <p className="mt-2 text-2xl font-bold text-amber-200">{overEstimated} jobs</p>
-                      <p className="mt-1 text-xs text-amber-400">Cost less than quoted</p>
-                    </div>
-                  </div>
-
-                  {completedJobs.length === 0 && (
-                    <p className="mt-6 rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-400">
-                      No completed jobs with actual costs yet. Complete jobs and log actual costs to see analysis.
-                    </p>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
     </main>
   );
 }
