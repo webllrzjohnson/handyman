@@ -70,7 +70,7 @@ export const urgencyOptions = [
   { id: "evening-weekend", label: "Evening or weekend", type: "percent", amount: 0.3 },
 ] as const;
 
-const sameFixtureAddOnGroups: Record<"toilet" | "sink", AddOn[]> = {
+const sameFixtureAddOnGroups: Record<"toilet" | "sink" | "door", AddOn[]> = {
   toilet: [
     { id: "toilet-supply-line", label: "Replace toilet supply line", price: 35 },
     { id: "toilet-fill-valve", label: "Replace fill valve", price: 60 },
@@ -88,6 +88,14 @@ const sameFixtureAddOnGroups: Record<"toilet" | "sink", AddOn[]> = {
     { id: "sink-minor-snake", label: "Minor sink snake while trap is off", price: 75 },
     { id: "sink-caulk", label: "Remove and redo sink caulk/silicone", price: 50 },
   ],
+  door: [
+    { id: "door-hinges", label: "Replace or repair door hinges (set of 3)", price: 65 },
+    { id: "door-weather-strip", label: "Replace door weather stripping", price: 55 },
+    { id: "door-sweep", label: "Install or replace door sweep", price: 40 },
+    { id: "door-strike-plate", label: "Adjust or replace strike plate", price: 35 },
+    { id: "door-stop", label: "Install or replace door stop", price: 25 },
+    { id: "door-latch-adjustment", label: "Adjust door latch alignment", price: 30 },
+  ],
 };
 
 const sameFixtureGroupsByJobId: Record<string, Array<keyof typeof sameFixtureAddOnGroups>> = {
@@ -104,6 +112,11 @@ const sameFixtureGroupsByJobId: Record<string, Array<keyof typeof sameFixtureAdd
   "p-trap-replacement-visible": ["sink"],
   "faucet-aerator-replacement-cleaning": ["sink"],
   "minor-sink-unplugging-hand-snake": ["sink"],
+  "door-knob-lever-replacement-existing-bore-latch-prep": ["door"],
+  "deadbolt-installation-existing-door-prep": ["door"],
+  "door-closer-installation-standard": ["door"],
+  "interior-door-replacement-prehung": ["door"],
+  "screen-door-installation-standard-frame": ["door"],
 };
 
 const equivalentAddOnsByPrimaryJobId: Record<string, string[]> = {
@@ -116,6 +129,8 @@ const equivalentAddOnsByPrimaryJobId: Record<string, string[]> = {
   "basket-strainer-replacement": ["sink-basket-strainer"],
   "p-trap-replacement-visible": ["sink-p-trap"],
   "minor-sink-unplugging-hand-snake": ["sink-minor-snake"],
+  "door-hinge-replacement-repair-existing-mortise": ["door-hinges"],
+  "door-weather-stripping-replacement": ["door-weather-strip"],
 };
 
 export function getSameFixtureAddOns(job: ServiceJob): AddOn[] {

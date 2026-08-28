@@ -16,6 +16,7 @@ import {
   type ServiceJob,
   type TradeStatus,
 } from "@/lib/service-catalog";
+import { roomCategories, findJobLocation } from "@/lib/room-categories";
 import { calculateMultiJobQuote, calculateQuote, type CartJobInput } from "@/lib/pricing-engine";
 import * as api from "@/lib/api-client";
 
@@ -57,6 +58,8 @@ type QuoteCartItem = {
 
 export default function Home() {
   const [jobId, setJobId] = useState(serviceJobs[0].id);
+  const [selectedRoom, setSelectedRoom] = useState("any-room");
+  const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [category, setCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | TradeStatus>("all");
   const [query, setQuery] = useState("");
@@ -131,14 +134,31 @@ export default function Home() {
 
   const filteredJobs = useMemo(() => {
     const q = query.trim().toLowerCase();
+    
+    // Get jobs for selected room/area
+    let roomJobIds: string[] = [];
+    if (selectedRoom && selectedRoom !== "all") {
+      const room = roomCategories.find(r => r.id === selectedRoom);
+      if (room) {
+        if (selectedArea) {
+          const area = room.areas.find(a => a.id === selectedArea);
+          roomJobIds = area?.jobIds || [];
+        } else {
+          // All jobs in this room
+          roomJobIds = room.areas.flatMap(a => a.jobIds);
+        }
+      }
+    }
+    
     return serviceJobs.filter((item) => {
+      const roomMatch = selectedRoom === "all" || roomJobIds.includes(item.id);
       const categoryMatch = category === "all" || item.category === category;
       const statusMatch = statusFilter === "all" || item.tradeStatus === statusFilter;
       const acceptableMatch = !onlyAcceptable || item.tradeStatus === "handyman_ok" || item.tradeStatus === "caution";
       const queryMatch = !q || `${item.category} ${item.name} ${item.stopConditions}`.toLowerCase().includes(q);
-      return categoryMatch && statusMatch && acceptableMatch && queryMatch;
+      return roomMatch && categoryMatch && statusMatch && acceptableMatch && queryMatch;
     });
-  }, [category, onlyAcceptable, query, statusFilter]);
+  }, [selectedRoom, selectedArea, category, onlyAcceptable, query, statusFilter]);
 
   const selectedJob = serviceJobs.find((item) => item.id === jobId) ?? serviceJobs[0];
   const job = filteredJobs.find((item) => item.id === selectedJob.id) ?? filteredJobs[0] ?? selectedJob;
@@ -365,20 +385,98 @@ export default function Home() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]">
           <section className="space-y-5 rounded-3xl border border-slate-200 bg-white p-4 text-slate-950 shadow-xl sm:p-6">
-            <div className="grid gap-3 xl:grid-cols-[1fr_220px]">
-              <TextBox id="search" label="Search jobs" value={query} onChange={setQuery} placeholder="Try curtain, caulk, shower, deadbolt, screen..." />
-              <SelectBox id="category" label="Category" value={category} onChange={setCategory} options={[{ id: "all", label: "All categories" }, ...categories.map((item) => ({ id: item, label: item }))]} />
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-wrap gap-2">
-                {statusOptions.map((item) => <PillButton key={item.id} active={statusFilter === item.id} onClick={() => setStatusFilter(item.id)}>{item.label}</PillButton>)}
-                <PillButton active={onlyAcceptable} onClick={() => setOnlyAcceptable((current) => !current)} tone="cyan">{onlyAcceptable ? "Acceptable only" : "Only show jobs I can accept"}</PillButton>
+            <div className="rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50 p-4">
+              <p className="text-sm font-bold uppercase tracking-wide text-cyan-950">Step 1: Where are you working?</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {[{ id: "all", name: "All Rooms", icon: "🔍" }, ...roomCategories].map((room) => (
+                  <button
+                    key={room.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRoom(room.id);
+                      setSelectedArea(null);
+                    }}
+                    className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-left font-semibold transition ${
+                      selectedRoom === room.id
+                        ? "border-cyan-600 bg-cyan-600 text-white shadow-lg"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-cyan-400 hover:bg-cyan-50"
+                    }`}
+                  >
+                    <span className="text-2xl">{room.icon}</span>
+                    <span className="text-sm">{room.name}</span>
+                  </button>
+                ))}
               </div>
-              <p className="mt-3 text-sm text-slate-500">Showing {filteredJobs.length} of {serviceJobs.length} researched jobs.</p>
+
+              {selectedRoom && selectedRoom !== "all" && (() => {
+                const room = roomCategories.find(r => r.id === selectedRoom);
+                return room ? (
+                  <div className="mt-4">
+                    <p className="text-sm font-bold uppercase tracking-wide text-cyan-950">Step 2: What area/fixture?</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedArea(null)}
+                        className={`rounded-xl border-2 px-4 py-2 text-left text-sm font-semibold transition ${
+                          selectedArea === null
+                            ? "border-cyan-600 bg-cyan-100 text-cyan-950"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-cyan-400"
+                        }`}
+                      >
+                        All {room.name} Jobs
+                      </button>
+                      {room.areas.map((area) => (
+                        <button
+                          key={area.id}
+                          type="button"
+                          onClick={() => setSelectedArea(area.id)}
+                          className={`rounded-xl border-2 px-4 py-2 text-left text-sm font-semibold transition ${
+                            selectedArea === area.id
+                              ? "border-cyan-600 bg-cyan-100 text-cyan-950"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-cyan-400"
+                          }`}
+                        >
+                          {area.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
             </div>
 
-            <SelectBox id="job" label="Job type" value={job.id} onChange={updateJob} options={filteredJobs.map((item) => ({ id: item.id, label: `${item.category}: ${item.name}` }))} />
+            <div className="grid gap-3 xl:grid-cols-[1fr_220px]">
+              <TextBox id="search" label="Quick search (optional)" value={query} onChange={setQuery} placeholder="Search within selected area..." />
+              <SelectBox id="category" label="Filter by type" value={statusFilter} onChange={(val) => setStatusFilter(val as any)} options={statusOptions.map((item) => ({ id: item.id, label: item.label }))} />
+            </div>
+
+            <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4">
+              <p className="text-sm font-bold uppercase tracking-wide text-blue-950">Step 3: Select specific job</p>
+              <p className="mt-1 text-xs text-blue-800">Showing {filteredJobs.length} jobs in this area</p>
+              <select 
+                id="job" 
+                value={job.id} 
+                onChange={(e) => updateJob(e.target.value)}
+                className="mt-3 w-full rounded-xl border-2 border-blue-300 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none ring-blue-500 transition focus:ring-2"
+              >
+                {filteredJobs.map((item) => {
+                  const location = findJobLocation(item.id);
+                  const displayName = location 
+                    ? `${item.name}` 
+                    : `${item.name}`;
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {displayName}
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${tradeStyles[job.tradeStatus]}`}>
+                  {tradeLabels[job.tradeStatus]}
+                </span>
+              </div>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-[220px_1fr]">
               <QuantityBox value={quantity} setValue={setQuantity} unit={job.unitLabel} />
