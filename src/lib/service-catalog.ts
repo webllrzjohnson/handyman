@@ -2075,7 +2075,7 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Faucet replacement", "Corroded drain piping", "Wall drain repair", "Vanity replacement"],
     "stopConditions": "Stop if nut is seized, sink is cracked, drain body is corroded into place, P-trap/wall arm is rotten, or leak continues from concealed plumbing.",
     "sources": ["https://www.thumbtack.com/p/sink-repair-cost", "https://cityrooter.ca/plumber-cost", "https://www.homestars.com/handyman-services/price-guides/handyman-services-cost-toronto"],
-    "addOns": [{ "id": "replace-p-trap", "label": "Replace P-trap at same time", "price": 75 }]
+    "addOns": []
   },
   {
     "id": "basket-strainer-replacement",
@@ -2095,7 +2095,7 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Garburator", "Dishwasher drain changes", "Corroded plumbing", "Sink removal"],
     "stopConditions": "Stop if locknut is seized, sink is thin/rusted, garburator is attached, drain pipes are corroded, double-sink layout needs reconfiguration, or wall drain has issues.",
     "sources": ["https://www.thumbtack.com/p/sink-repair-cost", "https://cityrooter.ca/plumber-cost", "Reddit user quote snippet for basket strainer, weak non-local sentiment"],
-    "addOns": [{ "id": "dual-bowl", "label": "Double-bowl drain complexity", "price": 75 }, { "id": "replace-p-trap", "label": "Replace P-trap", "price": 75 }]
+    "addOns": [{ "id": "dual-bowl", "label": "Double-bowl drain complexity", "price": 75 }]
   },
   {
     "id": "p-trap-replacement-visible",
@@ -2115,7 +2115,7 @@ export const serviceJobs: ServiceJob[] = [
     "notIncluded": ["Wall drain repair", "ABS/copper alterations", "Concealed plumbing", "Drain snaking unless added"],
     "stopConditions": "Stop if wall arm is corroded, pipe breaks, drain pitch/layout is wrong, trap is glued ABS/copper beyond simple slip-joint replacement, or clog persists after replacement.",
     "sources": ["https://www.thumbtack.com/p/sink-repair-cost", "https://cityrooter.ca/plumber-cost", "https://plumberdrainrepairs.com/blog/drain-snaking-toronto"],
-    "addOns": [{ "id": "minor-snake", "label": "Minor sink snake while trap is off", "price": 75 }]
+    "addOns": []
   },
   {
     "id": "faucet-aerator-replacement-cleaning",
