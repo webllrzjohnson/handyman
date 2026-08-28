@@ -716,6 +716,78 @@ export const serviceJobs: ServiceJob[] = [
     "addOns": []
   },
   {
+    "id": "bifold-closet-door-adjustment-repair",
+    "category": "Doors, locks, and hardware",
+    "name": "Bifold closet door adjustment and repair",
+    "pricingUnit": "per closet opening, includes both doors",
+    "unitLabel": "opening",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 85,
+    "pricing": {
+      "informal_floor": { "low": 80, "target": 120, "high": 180 },
+      "solo_freelancer": { "low": 120, "target": 175, "high": 250 },
+      "insured_company": { "low": 180, "target": 275, "high": 400 }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "Based on 2026 Toronto GTA handyman pricing and closet door service providers",
+    "included": ["Realign door panels", "Adjust pivot brackets", "Lubricate hinges", "Tighten hardware"],
+    "notIncluded": ["Door replacement", "Track replacement", "Major structural repairs", "Frame modifications"],
+    "stopConditions": "Stop if doors are severely warped, frame is damaged, track is broken, or full door replacement is needed.",
+    "sources": ["https://www.homestars.com/handyman-services/handyman-pros/toronto", "https://renohouse.ca/services/doors-windows/closet-doors"],
+    "addOns": []
+  },
+  {
+    "id": "sliding-closet-door-roller-track-repair",
+    "category": "Doors, locks, and hardware",
+    "name": "Sliding closet door roller and track repair",
+    "pricingUnit": "per closet opening, cleaning track and replacing worn rollers",
+    "unitLabel": "opening",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 90,
+    "pricing": {
+      "informal_floor": { "low": 85, "target": 130, "high": 200 },
+      "solo_freelancer": { "low": 130, "target": 190, "high": 280 },
+      "insured_company": { "low": 200, "target": 310, "high": 450 }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "Based on 2026 Toronto sliding door repair pricing",
+    "included": ["Deep clean tracks", "Replace worn rollers", "Realign doors", "Adjust guide brackets"],
+    "notIncluded": ["Mirror panel replacement", "Track replacement", "Door replacement", "Frame repairs"],
+    "stopConditions": "Stop if track is bent/broken, mirror panels are cracked, frame needs reinforcement, or doors need full replacement.",
+    "sources": ["https://mrdoorrepair.ca/services/residential/sliding-closet-doors-repair-supply-and-installation/", "https://renohouse.ca/services/doors-windows/sliding-door-repair"],
+    "addOns": []
+  },
+  {
+    "id": "closet-rod-shelf-installation",
+    "category": "Mounting and hanging",
+    "name": "Closet rod and shelf installation",
+    "pricingUnit": "per rod/shelf set, includes brackets and mounting",
+    "unitLabel": "set",
+    "includedQuantity": 1,
+    "defaultQuantity": 1,
+    "additionalUnitPrice": 70,
+    "pricing": {
+      "informal_floor": { "low": 70, "target": 110, "high": 160 },
+      "solo_freelancer": { "low": 110, "target": 165, "high": 240 },
+      "insured_company": { "low": 170, "target": 260, "high": 380 }
+    },
+    "materialAllowance": 0,
+    "tradeStatus": "handyman_ok",
+    "confidence": "medium",
+    "sourceConfidence": "Based on 2026 Toronto shelving and closet organizer installation pricing",
+    "included": ["Mount brackets to studs", "Install rod or shelf", "Level and secure", "Basic configuration"],
+    "notIncluded": ["Custom closet systems", "Wire shelving systems", "Built-in organizers", "Rod/shelf materials"],
+    "stopConditions": "Stop if wall reinforcement needed, custom closet system installation, or structural changes required.",
+    "sources": ["https://www.homestars.com/handyman-services/handyman-pros/toronto"],
+    "addOns": []
+  },
+  {
     "id": "window-screen-mesh-replacement",
     "category": "Screens and windows",
     "name": "Window screen mesh replacement",

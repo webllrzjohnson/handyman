@@ -161,15 +161,30 @@ export default function Home() {
     });
   }, [selectedRoom, selectedArea, category, onlyAcceptable, query, statusFilter]);
 
-  const selectedJob = serviceJobs.find((item) => item.id === jobId) ?? serviceJobs[0];
-  const job = filteredJobs.find((item) => item.id === selectedJob.id) ?? filteredJobs[0] ?? selectedJob;
+  // Get the current job, ensuring we use filteredJobs first
+  const job = useMemo(() => {
+    const filtered = filteredJobs.find((item) => item.id === jobId);
+    if (filtered) return filtered;
+    
+    // If current selection not in filtered list, use first filtered job
+    if (filteredJobs.length > 0) {
+      setJobId(filteredJobs[0].id);
+      return filteredJobs[0];
+    }
+    
+    // Fallback to first job in catalog
+    return serviceJobs[0];
+  }, [jobId, filteredJobs]);
   const condition = conditionAdjustments.find((item) => item.id === conditionId) ?? conditionAdjustments[1];
   const travel = travelOptions.find((item) => item.id === travelId) ?? travelOptions[1];
   const parking = parkingOptions.find((item) => item.id === parkingId) ?? parkingOptions[0];
   const access = accessOptions.find((item) => item.id === accessId) ?? accessOptions[0];
   const material = materialOptions.find((item) => item.id === materialId) ?? materialOptions[0];
   const urgency = urgencyOptions.find((item) => item.id === urgencyId) ?? urgencyOptions[0];
-  const sameFixtureAddOns = getSameFixtureAddOns(job);
+  // Recalculate same-fixture add-ons whenever job changes
+  const sameFixtureAddOns = useMemo(() => {
+    return getSameFixtureAddOns(job);
+  }, [job.id]); // Re-run when job ID changes
   const previewQuote = calculateQuote({
     job,
     pricingMode,
@@ -225,6 +240,9 @@ export default function Home() {
     setJobId(nextJobId);
     setQuantity(next?.defaultQuantity ?? 1);
     setSelectedAddOns([]);
+    
+    // Force re-render to update same-fixture add-ons
+    setMaterialCost(0);
   }
 
   function addToQuote() {
