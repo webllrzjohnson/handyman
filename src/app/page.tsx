@@ -16,7 +16,7 @@ import {
   type ServiceJob,
   type TradeStatus,
 } from "@/lib/service-catalog";
-import { roomCategories, findJobLocation } from "@/lib/room-categories";
+import { roomCategories, findJobLocation, getRoomJobIds } from "@/lib/room-categories";
 import { calculateMultiJobQuote, calculateQuote, type CartJobInput } from "@/lib/pricing-engine";
 import * as api from "@/lib/api-client";
 
@@ -59,7 +59,7 @@ type QuoteCartItem = {
 
 export default function Home() {
   const [jobId, setJobId] = useState(serviceJobs[0].id);
-  const [selectedRoom, setSelectedRoom] = useState("any-room");
+  const [selectedRoom, setSelectedRoom] = useState("all");
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [category, setCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | TradeStatus>("all");
@@ -136,20 +136,7 @@ export default function Home() {
   const filteredJobs = useMemo(() => {
     const q = query.trim().toLowerCase();
     
-    // Get jobs for selected room/area
-    let roomJobIds: string[] = [];
-    if (selectedRoom && selectedRoom !== "all") {
-      const room = roomCategories.find(r => r.id === selectedRoom);
-      if (room) {
-        if (selectedArea) {
-          const area = room.areas.find(a => a.id === selectedArea);
-          roomJobIds = area?.jobIds || [];
-        } else {
-          // All jobs in this room
-          roomJobIds = room.areas.flatMap(a => a.jobIds);
-        }
-      }
-    }
+    const roomJobIds = getRoomJobIds(selectedRoom, selectedArea);
     
     return serviceJobs.filter((item) => {
       const roomMatch = selectedRoom === "all" || roomJobIds.includes(item.id);
@@ -161,30 +148,14 @@ export default function Home() {
     });
   }, [selectedRoom, selectedArea, category, onlyAcceptable, query, statusFilter]);
 
-  // Get the current job, ensuring we use filteredJobs first
-  const job = useMemo(() => {
-    const filtered = filteredJobs.find((item) => item.id === jobId);
-    if (filtered) return filtered;
-    
-    // If current selection not in filtered list, use first filtered job
-    if (filteredJobs.length > 0) {
-      setJobId(filteredJobs[0].id);
-      return filteredJobs[0];
-    }
-    
-    // Fallback to first job in catalog
-    return serviceJobs[0];
-  }, [jobId, filteredJobs]);
+  const job = filteredJobs.find((item) => item.id === jobId) ?? filteredJobs[0] ?? serviceJobs[0];
   const condition = conditionAdjustments.find((item) => item.id === conditionId) ?? conditionAdjustments[1];
   const travel = travelOptions.find((item) => item.id === travelId) ?? travelOptions[1];
   const parking = parkingOptions.find((item) => item.id === parkingId) ?? parkingOptions[0];
   const access = accessOptions.find((item) => item.id === accessId) ?? accessOptions[0];
   const material = materialOptions.find((item) => item.id === materialId) ?? materialOptions[0];
   const urgency = urgencyOptions.find((item) => item.id === urgencyId) ?? urgencyOptions[0];
-  // Recalculate same-fixture add-ons whenever job changes
-  const sameFixtureAddOns = useMemo(() => {
-    return getSameFixtureAddOns(job);
-  }, [job.id]); // Re-run when job ID changes
+  const sameFixtureAddOns = getSameFixtureAddOns(job);
   const previewQuote = calculateQuote({
     job,
     pricingMode,
@@ -237,21 +208,37 @@ export default function Home() {
 
   function updateJob(nextJobId: string) {
     const next = serviceJobs.find((item) => item.id === nextJobId);
+    if (!next) return;
     setJobId(nextJobId);
-    setQuantity(next?.defaultQuantity ?? 1);
+    setQuantity(next.defaultQuantity);
     setSelectedAddOns([]);
-    
-    // Force re-render to update same-fixture add-ons
-    setMaterialCost(0);
+  }
+
+  function selectRoom(nextRoomId: string) {
+    setSelectedRoom(nextRoomId);
+    setSelectedArea(null);
+    setSelectedAddOns([]);
+
+    const nextJobId = getRoomJobIds(nextRoomId).find((id) => serviceJobs.some((job) => job.id === id));
+    if (nextJobId) updateJob(nextJobId);
+  }
+
+  function selectArea(nextAreaId: string | null) {
+    setSelectedArea(nextAreaId);
+    setSelectedAddOns([]);
+
+    const nextJobId = getRoomJobIds(selectedRoom, nextAreaId).find((id) => serviceJobs.some((job) => job.id === id));
+    if (nextJobId) updateJob(nextJobId);
   }
 
   function addToQuote() {
     if (!previewQuote.isQuotable) return;
     
-    const location = findJobLocation(job.id);
-    const locationLabel = location 
-      ? `${location.room.name} - ${location.area.name}`
-      : "Other";
+    const room = roomCategories.find((item) => item.id === selectedRoom);
+    const area = room?.areas.find((item) => item.id === selectedArea);
+    const locationLabel = room
+      ? `${room.name} - ${area?.name ?? "General"}`
+      : "All Rooms / Unassigned";
     
     setCart((current) => [
       ...current,
@@ -299,20 +286,25 @@ export default function Home() {
         total: invoice.total,
       };
 
-      const items = cartInputs.map((item) => ({
-        jobId: item.job.id,
-        jobName: item.job.name,
-        jobCategory: item.job.category,
-        quantity: item.quantity,
-        conditionId: cart.find((c) => c.id === item.id)?.conditionId || "normal",
-        conditionLabel: item.conditionLabel,
-        conditionAmount: item.conditionAmount,
-        materialCost: item.materialCost,
-        materialMarkupPercent: item.materialMarkupPercent,
-        materialPickupFee: item.materialPickupFee,
-        selectedAddOnIds: JSON.stringify(item.selectedAddOnIds),
-        lineSubtotal: invoice.jobLines.find((line) => line.id === item.id)?.lineSubtotal ?? 0,
-      }));
+      const items = cartInputs.map((item) => {
+        const cartItem = cart.find((c) => c.id === item.id);
+        return {
+          jobId: item.job.id,
+          jobName: item.job.name,
+          jobCategory: item.job.category,
+          quantity: item.quantity,
+          conditionId: cartItem?.conditionId || "normal",
+          conditionLabel: item.conditionLabel,
+          conditionAmount: item.conditionAmount,
+          materialId: cartItem?.materialId || "client",
+          materialCost: item.materialCost,
+          materialMarkupPercent: item.materialMarkupPercent,
+          materialPickupFee: item.materialPickupFee,
+          selectedAddOnIds: JSON.stringify(item.selectedAddOnIds),
+          location: cartItem?.location || "Other",
+          lineSubtotal: invoice.jobLines.find((line) => line.id === item.id)?.lineSubtotal ?? 0,
+        };
+      });
 
       if (currentQuoteId) {
         await api.updateQuote(currentQuoteId, { quote: quoteData, items });
@@ -353,22 +345,17 @@ export default function Home() {
       if (foundAccess) setAccessId(foundAccess.id);
       
       const loadedCart = items.map((item: any) => {
-        const location = findJobLocation(item.jobId);
-        const locationLabel = location 
-          ? `${location.room.name} - ${location.area.name}`
-          : "Other";
-        
         return {
           id: `${item.jobId}-${item.id}`,
           jobId: item.jobId,
           quantity: item.quantity,
           conditionId: item.conditionId,
-          materialId: "standard-pickup",
+          materialId: item.materialId || "client",
           materialCost: item.materialCost,
           materialMarkupPercent: item.materialMarkupPercent,
           materialPickupFee: item.materialPickupFee,
           selectedAddOnIds: JSON.parse(item.selectedAddOnIds || "[]"),
-          location: locationLabel,
+          location: item.location || "Other",
         };
       });
       
@@ -381,15 +368,25 @@ export default function Home() {
     }
   }
 
-  function newQuote() {
+  async function newQuote() {
     setCart([]);
     setClientName("");
     setClientAddress("");
     setSelectedClientId(null);
     setCurrentQuoteId(null);
     setQuoteStatus("draft");
-    setQuoteNumber(`Q-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`);
     setShowHistory(false);
+    
+    // Generate next quote number
+    try {
+      const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+      const todayQuotes = quotes.filter(q => q.quoteNumber.startsWith(`Q-${today}`));
+      const nextNum = todayQuotes.length + 1;
+      setQuoteNumber(`Q-${today}-${String(nextNum).padStart(3, "0")}`);
+    } catch (error) {
+      console.error("Error generating quote number:", error);
+      setQuoteNumber(`Q-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`);
+    }
   }
 
   const clientMessage = cart.length
@@ -426,10 +423,7 @@ export default function Home() {
                   <button
                     key={room.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedRoom(room.id);
-                      setSelectedArea(null);
-                    }}
+                    onClick={() => selectRoom(room.id)}
                     className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-left font-semibold transition ${
                       selectedRoom === room.id
                         ? "border-cyan-600 bg-cyan-600 text-white shadow-lg"
@@ -450,7 +444,7 @@ export default function Home() {
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
-                        onClick={() => setSelectedArea(null)}
+                        onClick={() => selectArea(null)}
                         className={`rounded-xl border-2 px-4 py-2 text-left text-sm font-semibold transition ${
                           selectedArea === null
                             ? "border-cyan-600 bg-cyan-100 text-cyan-950"
@@ -463,7 +457,7 @@ export default function Home() {
                         <button
                           key={area.id}
                           type="button"
-                          onClick={() => setSelectedArea(area.id)}
+                          onClick={() => selectArea(area.id)}
                           className={`rounded-xl border-2 px-4 py-2 text-left text-sm font-semibold transition ${
                             selectedArea === area.id
                               ? "border-cyan-600 bg-cyan-100 text-cyan-950"
@@ -489,10 +483,12 @@ export default function Home() {
               <p className="mt-1 text-xs text-blue-800">Showing {filteredJobs.length} jobs in this area</p>
               <select 
                 id="job" 
-                value={job.id} 
+                value={filteredJobs.length ? job.id : ""}
                 onChange={(e) => updateJob(e.target.value)}
+                disabled={filteredJobs.length === 0}
                 className="mt-3 w-full rounded-xl border-2 border-blue-300 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none ring-blue-500 transition focus:ring-2"
               >
+                {filteredJobs.length === 0 ? <option value="">No jobs match these filters</option> : null}
                 {filteredJobs.map((item) => {
                   const location = findJobLocation(item.id);
                   const displayName = location 
@@ -543,9 +539,9 @@ export default function Home() {
             <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm font-bold uppercase tracking-wide text-blue-950">Same-fixture add-ons</p>
               <p className="mt-2 text-sm leading-6 text-blue-950">
-                Use these when the extra work is on the same fixture during the same visit. Example: toilet tank replacement can also include a flush handle, toilet seat, fill valve, flush valve, or supply line. Sink jobs can bundle related faucet, PO plug, basket strainer, P-trap, supply line, and caulk work.
+                These options are specific to the selected job and refresh when Step 3 changes. Use them only when the extra work is on that same toilet, sink, door, closet door, or screen during this visit.
               </p>
-              <div className="mt-3 grid gap-2">
+              <div key={job.id} className="mt-3 grid gap-2">
                 {sameFixtureAddOns.length ? sameFixtureAddOns.map((item) => (
                   <label key={item.id} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-slate-800">
                     <span className="flex items-center gap-2">

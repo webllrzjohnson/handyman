@@ -8,17 +8,17 @@ export async function GET(request: NextRequest) {
     const clientId = searchParams.get("clientId");
     const status = searchParams.get("status");
 
-    let query = db.select().from(schema.quotes);
+    let queryBuilder = db.select().from(schema.quotes).$dynamic();
 
     if (clientId) {
-      query = query.where(eq(schema.quotes.clientId, Number(clientId))) as any;
+      queryBuilder = queryBuilder.where(eq(schema.quotes.clientId, Number(clientId)));
     }
     
     if (status) {
-      query = query.where(eq(schema.quotes.status, status)) as any;
+      queryBuilder = queryBuilder.where(eq(schema.quotes.status, status));
     }
 
-    const quotes = await query.orderBy(desc(schema.quotes.createdAt));
+    const quotes = await queryBuilder.orderBy(desc(schema.quotes.createdAt));
     return NextResponse.json(quotes);
   } catch (error) {
     console.error("Error fetching quotes:", error);
@@ -26,16 +26,33 @@ export async function GET(request: NextRequest) {
   }
 }
 
+type QuoteItem = {
+  jobId: string;
+  jobName: string;
+  jobCategory: string;
+  quantity: number;
+  conditionId: string;
+  conditionLabel: string;
+  conditionAmount: number;
+  materialId: string;
+  materialCost: number;
+  materialMarkupPercent: number;
+  materialPickupFee: number;
+  selectedAddOnIds: string;
+  location: string;
+  lineSubtotal: number;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { quote, items } = body;
+    const { quote, items } = body as { quote: typeof schema.quotes.$inferInsert; items: QuoteItem[] };
 
     const result = await db.insert(schema.quotes).values(quote).returning();
     const savedQuote = result[0];
 
     if (items && items.length > 0) {
-      const itemsWithQuoteId = items.map((item: any) => ({
+      const itemsWithQuoteId = items.map((item) => ({
         ...item,
         quoteId: savedQuote.id,
       }));

@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
+type QuoteItem = {
+  jobId: string;
+  jobName: string;
+  jobCategory: string;
+  quantity: number;
+  conditionId: string;
+  conditionLabel: string;
+  conditionAmount: number;
+  materialId: string;
+  materialCost: number;
+  materialMarkupPercent: number;
+  materialPickupFee: number;
+  selectedAddOnIds: string;
+  location: string;
+  lineSubtotal: number;
+};
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -24,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { quote, items } = body;
+    const { quote, items } = body as { quote: Partial<typeof schema.quotes.$inferInsert>; items: QuoteItem[] };
 
     const result = await db.update(schema.quotes)
       .set({ ...quote, updatedAt: new Date() })
@@ -38,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (items) {
       await db.delete(schema.quoteItems).where(eq(schema.quoteItems.quoteId, Number(id)));
       if (items.length > 0) {
-        const itemsWithQuoteId = items.map((item: any) => ({
+        const itemsWithQuoteId = items.map((item) => ({
           ...item,
           quoteId: Number(id),
         }));

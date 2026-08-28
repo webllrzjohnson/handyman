@@ -7,13 +7,13 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const quoteId = searchParams.get("quoteId");
 
-    let query = db.select().from(schema.jobCompletions);
+    let queryBuilder = db.select().from(schema.jobCompletions).$dynamic();
 
     if (quoteId) {
-      query = query.where(eq(schema.jobCompletions.quoteId, Number(quoteId))) as any;
+      queryBuilder = queryBuilder.where(eq(schema.jobCompletions.quoteId, Number(quoteId)));
     }
 
-    const completions = await query.orderBy(desc(schema.jobCompletions.completedAt));
+    const completions = await queryBuilder.orderBy(desc(schema.jobCompletions.completedAt));
     return NextResponse.json(completions);
   } catch (error) {
     console.error("Error fetching completions:", error);

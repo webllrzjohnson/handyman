@@ -44,10 +44,12 @@ export const quoteItems = sqliteTable("quote_items", {
   conditionId: text("condition_id").notNull(),
   conditionLabel: text("condition_label").notNull(),
   conditionAmount: real("condition_amount").notNull(),
+  materialId: text("material_id").notNull().default("client"),
   materialCost: real("material_cost").notNull().default(0),
   materialMarkupPercent: real("material_markup_percent").notNull().default(0),
   materialPickupFee: real("material_pickup_fee").notNull().default(0),
   selectedAddOnIds: text("selected_add_on_ids").notNull().default("[]"), // JSON array
+  location: text("location").notNull().default("Other"),
   lineSubtotal: real("line_subtotal").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
