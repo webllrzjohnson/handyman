@@ -2,9 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { getRoomJobIds, roomCategories } from "../src/lib/room-categories";
-import { getSameFixtureAddOns, serviceJobs } from "../src/lib/service-catalog";
+import {
+  equivalentAddOnsByPrimaryJobId,
+  getSameFixtureAddOns,
+  sameFixtureAddOnGroups,
+  sameFixtureGroupsByJobId,
+  serviceJobs,
+} from "../src/lib/service-catalog";
+import { isQuotableStatus } from "../src/lib/pricing-engine";
 
 const catalogIds = new Set(serviceJobs.map((job) => job.id));
+const jobsById = new Map(serviceJobs.map((job) => [job.id, job]));
 
 describe("room and job navigation", () => {
   it("gives every room area at least one valid Step 3 job", () => {
@@ -28,6 +36,28 @@ describe("room and job navigation", () => {
 
     for (const room of roomCategories) {
       assert.ok(getRoomJobIds(room.id).length > 0, `${room.name} must populate Step 3`);
+    }
+  });
+
+  it("maps every catalog job to at least one room or referral area", () => {
+    const mappedIds = new Set(getRoomJobIds("all"));
+
+    for (const job of serviceJobs) {
+      assert.ok(mappedIds.has(job.id), `${job.name} must be reachable from room navigation or referrals`);
+    }
+  });
+
+  it("keeps referral-only work out of normal room areas", () => {
+    for (const room of roomCategories) {
+      for (const area of room.areas) {
+        if (area.id === "whole-home-referrals") continue;
+
+        for (const jobId of area.jobIds) {
+          const job = jobsById.get(jobId);
+          assert.ok(job, `${room.name} > ${area.name} references missing catalog job ${jobId}`);
+          assert.ok(isQuotableStatus(job.tradeStatus), `${room.name} > ${area.name} should not include referral-only job ${job.name}`);
+        }
+      }
     }
   });
 });
@@ -69,5 +99,33 @@ describe("same-fixture add-ons", () => {
     assert.ok(!addOnIds("toilet-fill-valve-replacement").includes("toilet-supply-line"));
     assert.ok(!addOnIds("minor-sink-unplugging-hand-snake").includes("sink-p-trap"));
     assert.ok(!addOnIds("vanity-sink-replacement").includes("sink-caulk"));
+  });
+
+  it("only maps same-fixture groups from existing catalog jobs", () => {
+    for (const [jobId, groups] of Object.entries(sameFixtureGroupsByJobId)) {
+      assert.ok(catalogIds.has(jobId), `Same-fixture mapping references missing job ${jobId}`);
+
+      for (const group of groups) {
+        assert.ok(group in sameFixtureAddOnGroups, `${jobId} references missing add-on group ${group}`);
+      }
+    }
+  });
+
+  it("only excludes add-on IDs that exist in the mapped job add-ons", () => {
+    for (const [jobId, excludedIds] of Object.entries(equivalentAddOnsByPrimaryJobId)) {
+      assert.ok(catalogIds.has(jobId), `Equivalent add-on mapping references missing job ${jobId}`);
+
+      const job = jobsById.get(jobId);
+      assert.ok(job, `Missing job ${jobId}`);
+
+      const availableIds = new Set(job.addOns.map((item) => item.id));
+      for (const group of sameFixtureGroupsByJobId[jobId] ?? []) {
+        sameFixtureAddOnGroups[group].forEach((item) => availableIds.add(item.id));
+      }
+
+      for (const addOnId of excludedIds) {
+        assert.ok(availableIds.has(addOnId), `${jobId} excludes missing add-on ${addOnId}`);
+      }
+    }
   });
 });

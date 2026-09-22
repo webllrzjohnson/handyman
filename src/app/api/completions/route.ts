@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { eq, desc, and, isNotNull } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
+import { completionVariance, jsonError, parseCompletionPayload } from "@/lib/api-helpers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,17 +25,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const completion = parseCompletionPayload(body);
+    if ("error" in completion) return jsonError(completion.error, 400);
     
-    const variance = body.actualTotalCost && body.estimatedCost 
-      ? body.actualTotalCost - body.estimatedCost 
-      : null;
-    
-    const variancePercent = variance && body.estimatedCost 
-      ? (variance / body.estimatedCost) * 100 
-      : null;
+    const { variance, variancePercent } = completionVariance(completion);
 
     const result = await db.insert(schema.jobCompletions).values({
-      ...body,
+      ...completion,
       variance,
       variancePercent,
     }).returning();

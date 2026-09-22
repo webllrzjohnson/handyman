@@ -1,84 +1,99 @@
-# Handyman Price Guide Project Status
+# Handyman Price Guide — Project Status
 
-_Last updated: 2026-08-26, local inspection from Hermes Coordinator._
+_Last updated: 2026-08-30_
 
-## Current project / task state
+## Snapshot
 
-- Project: Handyman Price Guide.
-- Path: `D:\Factory\handyman-price-guide`.
-- Purpose: local Toronto/Ontario handyman pricing advisor for Louie.
-- Stack: Next.js 16, React 19, TypeScript, Tailwind 4.
-- Deployment: local-only MVP. Do not deploy unless Louie explicitly approves.
-- Data model: local TypeScript catalogue and pure pricing engine, no database.
-- Current branch: `master`.
-- Git state at inspection: one initial commit, then local uncommitted MVP work.
+| Item | Value |
+| --- | --- |
+| Project | Handyman Price Guide |
+| Path | `D:\Factory\handyman-price-guide` |
+| Remote | `https://github.com/webllrzjohnson/handyman.git` |
+| Branch | `master` |
+| Stack | Next.js 16, React 19, TypeScript, Tailwind 4, SQLite + Drizzle ORM |
+| Deployment | Local-only unless Louie explicitly approves |
+| Dev URL | `http://localhost:3000` |
 
-## Completed work
+## What it does now
 
-- Replaced the default Create Next App page with a usable local pricing advisor.
-- Added project rules in `.hermes.md`.
-- Added Toronto/Ontario research docs under `docs/`.
-- Added a service catalogue in `src/lib/service-catalog.ts`.
-- Added pricing logic in `src/lib/pricing-engine.ts`.
-- Added automated pricing-engine tests under `tests/pricing-engine.test.ts`.
-- Added a `test` script using `tsx --test`.
-- Fixed multi-job quote safety so a cart containing only referral-only jobs returns no normal quote total.
-- Fixed same-fixture add-on pricing so toilet and sink add-ons selected from the shared add-on panel are included in quote math, not just displayed in the UI.
-- Added UI in `src/app/page.tsx` for:
-  - job search and category filtering,
-  - trade status filtering,
-  - acceptable-job toggle,
-  - pricing modes for informal, solo freelancer, and company comparison,
-  - quantity pricing,
-  - material cost, markup, and pickup fee inputs,
-  - shared travel, parking, and access costs,
-  - same-fixture add-ons,
-  - multi-job quote cart,
-  - optional HST/tax,
-  - print/save-PDF invoice view,
-  - client-ready message.
-- Added global print styling for invoice output.
-- Updated README from default scaffold to project-specific instructions.
+Local Toronto/GTA handyman quoting tool for solo/freelance work. Louie can:
 
-## Verification snapshot
+- Browse jobs by room → area → job (Step 1–3 flow)
+- Build multi-job quotes with shared visit expenses
+- Use same-fixture add-ons (toilet, sink, door, screen door)
+- See included/not-included scope in Step 3
+- Add quick quote templates (kitchen sink refresh, bathroom refresh, door tune-up, rental turnover)
+- Save/load quotes, manage clients, track job completions
+- Print invoice preview and copy a client-ready message
 
-Commands run from `D:/factory/handyman-price-guide`:
+## Completed since last status (2026-08-26)
 
-```bash
-npm test
-npm run lint
-npm run build
-```
+### Data & persistence
+- SQLite database with clients, quotes, quote items, job completions
+- API routes with validation, transactions, and upsert-style quote item updates
+- Foreign keys enabled; quote items preserve `materialId` and `location`
+- Shared API helpers/types (`api-helpers.ts`, `api-types.ts`)
 
-Results on inspection:
+### Catalog & UX
+- Room-based navigation (Kitchen, Bathroom, Bedroom, Closet, etc.)
+- 67+ service jobs with trade-status boundaries
+- Referral-only jobs isolated to licensed-trade area (not in default room lists)
+- Duplicate same-fixture add-on fixes
+- Closet jobs added; Step 3 dropdown and add-on panel fixes
+- Step 3 scope checklist (included / not included)
+- Quick quote templates
 
-- `npm test` passed: 6 pricing-engine tests, 0 failures.
-- `npm run lint` passed.
-- `npm run build` passed.
-- Local page was opened at `http://localhost:3000/` and rendered the Handyman Price Guide UI.
-- Existing Next dev server was already running on port 3000. A new attempted dev server on port 3001 exited because another Next dev server was already running for this project.
+### Cleanup (audit pass)
+- Removed Step 3 job images (low value, unreliable URLs)
+- Removed charging-strategy panel, unused state, dead imports
+- Removed custom `migrate.ts` in favor of `drizzle-kit`
+- Tightened types (no `any` in API client / main page)
 
-## Important decisions and constraints
+### Verification (2026-08-30)
+- `npm test` — 21 tests, 0 failures (pricing engine, catalog navigation, API helpers, quote templates)
+- `npm run lint` — pass
+- `npm run build` — pass
 
-- Keep this local-first. No database, auth, or deployment until Louie approves.
-- Use Toronto/Ontario pricing data first.
-- Treat research prices as planning guidance, not guaranteed quotes.
-- Keep pricing transparent: labour, minimum visit, quantity, materials, markup, pickup, travel, parking, access, urgency, and tax should stay visible.
-- Use clear trade status values: `handyman_ok`, `caution`, `licensed_required`, `do_not_accept`.
-- Paid Ontario electrical work touching wiring, fixtures, switches, outlets, panels, breakers, hardwired devices, or circuits should normally be referral/licensed-required.
-- Gas/fuel appliance work should be TSSA-certified referral/do-not-accept unless Louie has the required certification.
-- For `licensed_required` and `do_not_accept`, the app should not generate a normal accept-this-work quote.
-- Use local TypeScript data and pure pricing functions. Do not move job-by-job pricing logic back into `page.tsx`.
+## Uncommitted work (needs commit)
 
-## Outstanding work
+Local changes not yet committed on `master`:
 
-1. Review the full catalogue for pricing accuracy, duplicate jobs, and trade-boundary labels.
-2. Expand tests beyond the first pricing-engine safety set, especially UI behavior and more catalogue edge cases.
-3. Split `src/app/page.tsx` into smaller components if it becomes difficult to maintain.
-4. Improve invoice/client-message polish after Louie tests real quote scenarios.
-5. Decide whether to commit the local MVP files together, after reviewing untracked docs and generated state.
-6. Optionally add a project status update habit whenever a phase is completed.
+- API validation/transaction improvements
+- Quote templates + scope checklist
+- Image catalog removal and UI cleanup
+- New tests: `api-helpers.test.ts`, `quote-templates.test.ts`
+- Deleted: `scripts/add-job-images.js`, `SaveLoadQuote.tsx`, `migrate.ts`
 
-## Next logical action
+**Recommendation:** Commit as one checkpoint before starting unrelated work.
 
-Review the full job catalogue and test a few real Louie quote scenarios in the UI, then either polish the invoice/client message or split `page.tsx` into components before committing.
+## Paused / deferred
+
+These were discussed but are **not** in scope right now:
+
+- SMS/email quote sending
+- Mobile-optimized layout
+- Step 3 job images (removed by design)
+- Further invoice/PDF polish until real quote scenarios are tested
+- Splitting `page.tsx` into smaller components (do when next UI phase starts)
+
+## Known gaps & risks
+
+1. **Pricing accuracy** — catalogue is research-based; Toronto/GTA rates may need periodic updates.
+2. **Large main page** — `src/app/page.tsx` still holds most UI logic.
+3. **Real-world testing** — save/load, completions, and invoice output need a few live quote walkthroughs.
+4. **Uncommitted checkpoint** — significant work sits in the working tree.
+
+## Next actions (when you return)
+
+1. **Commit** the current working tree to GitHub.
+2. **Test 3–5 real quotes** end-to-end (save, reload, print, completion tracking).
+3. **Review pricing** for jobs you quote most often; adjust `service-catalog.ts` bands.
+4. **Optional polish:** invoice layout, component split, export quote as JSON/PDF file.
+5. **Optional product:** quote favorites beyond templates, completion variance dashboard.
+
+## Constraints (unchanged)
+
+- Local-first; no public deployment without approval
+- Toronto/Ontario pricing and trade boundaries first
+- Do not quote `licensed_required` or `do_not_accept` work as normal handyman jobs
+- Keep pricing transparent: labour, materials, travel, urgency, tax visible

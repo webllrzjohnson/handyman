@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState, useEffect, type ReactNode } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   getSameFixtureAddOns,
   accessOptions,
-  categories,
   conditionAdjustments,
   materialOptions,
   parkingOptions,
@@ -16,9 +15,11 @@ import {
   type ServiceJob,
   type TradeStatus,
 } from "@/lib/service-catalog";
-import { roomCategories, findJobLocation, getRoomJobIds } from "@/lib/room-categories";
-import { calculateMultiJobQuote, calculateQuote, type CartJobInput } from "@/lib/pricing-engine";
+import { roomCategories, getRoomJobIds } from "@/lib/room-categories";
+import { calculateMultiJobQuote, calculateQuote, isQuotableStatus, type CartJobInput } from "@/lib/pricing-engine";
+import { quoteTemplates, type QuoteTemplate } from "@/lib/quote-templates";
 import * as api from "@/lib/api-client";
+import type { ApiClient, ApiCompletion, ApiQuote, QuoteItemPayload, QuoteStatus } from "@/lib/api-types";
 
 const currency = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 
@@ -46,6 +47,7 @@ const statusOptions: Array<{ id: "all" | TradeStatus; label: string }> = [
 
 type QuoteCartItem = {
   id: string;
+  dbItemId?: number;
   jobId: string;
   quantity: number;
   conditionId: string;
@@ -61,10 +63,8 @@ export default function Home() {
   const [jobId, setJobId] = useState(serviceJobs[0].id);
   const [selectedRoom, setSelectedRoom] = useState("all");
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
-  const [category, setCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | TradeStatus>("all");
   const [query, setQuery] = useState("");
-  const [onlyAcceptable, setOnlyAcceptable] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [pricingMode, setPricingMode] = useState<PricingMode>("solo_freelancer");
   const [conditionId, setConditionId] = useState("normal");
@@ -85,13 +85,12 @@ export default function Home() {
   
   // Database features
   const [currentQuoteId, setCurrentQuoteId] = useState<number | null>(null);
-  const [quoteStatus, setQuoteStatus] = useState<string>("draft");
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>("draft");
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [clients, setClients] = useState<any[]>([]);
-  const [quotes, setQuotes] = useState<any[]>([]);
-  const [completions, setCompletions] = useState<any[]>([]);
+  const [clients, setClients] = useState<ApiClient[]>([]);
+  const [quotes, setQuotes] = useState<ApiQuote[]>([]);
+  const [completions, setCompletions] = useState<ApiCompletion[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [showClients, setShowClients] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
   const [showReports, setShowReports] = useState(false);
 
@@ -128,25 +127,20 @@ export default function Home() {
     }
   }
 
-  const counts = useMemo(
-    () => serviceJobs.reduce((acc, item) => ({ ...acc, [item.tradeStatus]: acc[item.tradeStatus] + 1 }), { handyman_ok: 0, caution: 0, licensed_required: 0, do_not_accept: 0 } as Record<TradeStatus, number>),
-    [],
-  );
-
   const filteredJobs = useMemo(() => {
     const q = query.trim().toLowerCase();
     
     const roomJobIds = getRoomJobIds(selectedRoom, selectedArea);
+    const isReferralArea = selectedArea === "whole-home-referrals";
     
     return serviceJobs.filter((item) => {
-      const roomMatch = selectedRoom === "all" || roomJobIds.includes(item.id);
-      const categoryMatch = category === "all" || item.category === category;
+      const roomMatch = selectedRoom === "all" ? true : roomJobIds.includes(item.id);
       const statusMatch = statusFilter === "all" || item.tradeStatus === statusFilter;
-      const acceptableMatch = !onlyAcceptable || item.tradeStatus === "handyman_ok" || item.tradeStatus === "caution";
+      const acceptableMatch = statusFilter !== "all" || q || isReferralArea || isQuotableStatus(item.tradeStatus);
       const queryMatch = !q || `${item.category} ${item.name} ${item.stopConditions}`.toLowerCase().includes(q);
-      return roomMatch && categoryMatch && statusMatch && acceptableMatch && queryMatch;
+      return roomMatch && statusMatch && acceptableMatch && queryMatch;
     });
-  }, [selectedRoom, selectedArea, category, onlyAcceptable, query, statusFilter]);
+  }, [selectedRoom, selectedArea, query, statusFilter]);
 
   const job = filteredJobs.find((item) => item.id === jobId) ?? filteredJobs[0] ?? serviceJobs[0];
   const condition = conditionAdjustments.find((item) => item.id === conditionId) ?? conditionAdjustments[1];
@@ -258,6 +252,35 @@ export default function Home() {
     setSelectedAddOns([]);
   }
 
+  function addTemplateToQuote(template: QuoteTemplate) {
+    const timestamp = Date.now();
+
+    setCart((current) => {
+      const nextItems: QuoteCartItem[] = template.items.flatMap((item, index) => {
+        const templateJob = serviceJobs.find((serviceJob) => serviceJob.id === item.jobId);
+        if (!templateJob || !isQuotableStatus(templateJob.tradeStatus)) return [];
+
+        return {
+          id: `${template.id}-${templateJob.id}-${timestamp}-${current.length + index}`,
+          jobId: templateJob.id,
+          quantity: item.quantity ?? templateJob.defaultQuantity,
+          conditionId: "normal",
+          materialId: "client",
+          materialCost: 0,
+          materialMarkupPercent: 0,
+          materialPickupFee: 0,
+          selectedAddOnIds: item.selectedAddOnIds ?? [],
+          location: item.location,
+        };
+      });
+
+      return [...current, ...nextItems];
+    });
+
+    const firstJobId = template.items[0]?.jobId;
+    if (firstJobId) updateJob(firstJobId);
+  }
+
   function removeFromQuote(id: string) {
     setCart((current) => current.filter((item) => item.id !== id));
   }
@@ -286,9 +309,10 @@ export default function Home() {
         total: invoice.total,
       };
 
-      const items = cartInputs.map((item) => {
+      const items: QuoteItemPayload[] = cartInputs.map((item) => {
         const cartItem = cart.find((c) => c.id === item.id);
         return {
+          id: cartItem?.dbItemId,
           jobId: item.job.id,
           jobName: item.job.name,
           jobCategory: item.job.category,
@@ -318,7 +342,7 @@ export default function Home() {
       await loadQuotes();
     } catch (error) {
       console.error("Error saving quote:", error);
-      alert("Failed to save quote. Make sure you have items in the cart.");
+      alert(error instanceof Error ? error.message : "Failed to save quote.");
     }
   }
 
@@ -330,23 +354,27 @@ export default function Home() {
       setClientName(quote.clientName);
       setClientAddress(quote.clientAddress || "");
       setSelectedClientId(quote.clientId);
-      setPricingMode(quote.pricingMode);
+      setPricingMode(isPricingMode(quote.pricingMode) ? quote.pricingMode : "solo_freelancer");
       setHstPercent(quote.hstPercent);
-      setQuoteStatus(quote.status);
+      setQuoteStatus(isQuoteStatus(quote.status) ? quote.status : "draft");
       setCurrentQuoteId(quote.id);
       
       // Find travel, parking, access options
       const foundTravel = travelOptions.find(opt => opt.amount === quote.travelAmount);
       const foundParking = parkingOptions.find(opt => opt.amount === quote.parkingAmount);
       const foundAccess = accessOptions.find(opt => opt.amount === quote.accessAmount);
-      
+
       if (foundTravel) setTravelId(foundTravel.id);
       if (foundParking) setParkingId(foundParking.id);
       if (foundAccess) setAccessId(foundAccess.id);
-      
-      const loadedCart = items.map((item: any) => {
+
+      const foundUrgency = urgencyOptions.find((option) => option.type === quote.urgencyType && option.amount === quote.urgencyAmount);
+      if (foundUrgency) setUrgencyId(foundUrgency.id);
+
+      const loadedCart: QuoteCartItem[] = items.map((item) => {
         return {
           id: `${item.jobId}-${item.id}`,
+          dbItemId: item.id,
           jobId: item.jobId,
           quantity: item.quantity,
           conditionId: item.conditionId,
@@ -354,7 +382,7 @@ export default function Home() {
           materialCost: item.materialCost,
           materialMarkupPercent: item.materialMarkupPercent,
           materialPickupFee: item.materialPickupFee,
-          selectedAddOnIds: JSON.parse(item.selectedAddOnIds || "[]"),
+          selectedAddOnIds: parseAddOnIds(item.selectedAddOnIds),
           location: item.location || "Other",
         };
       });
@@ -399,23 +427,34 @@ export default function Home() {
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/30 lg:p-8">
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Toronto freelancer pricing</p>
-              <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Handyman Price Guide</h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300">Build a multi-job quote or invoice with quantity pricing, materials, shared visit expenses, and optional HST/tax.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-2">
-              <CountPill label="OK" value={counts.handyman_ok} tone="emerald" />
-              <CountPill label="Caution" value={counts.caution} tone="amber" />
-              <CountPill label="Licence" value={counts.licensed_required} tone="red" />
-              <CountPill label="Refer" value={counts.do_not_accept} tone="zinc" />
-            </div>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Toronto freelancer pricing</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Handyman Price Guide</h1>
+            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300">Build a multi-job quote or invoice with quantity pricing, materials, shared visit expenses, and optional HST/tax.</p>
           </div>
         </header>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]">
           <section className="space-y-5 rounded-3xl border border-slate-200 bg-white p-4 text-slate-950 shadow-xl sm:p-6">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-bold uppercase tracking-wide text-emerald-950">Quick quote templates</p>
+              <p className="mt-2 text-sm leading-6 text-emerald-900">Use these as starting bundles, then adjust quantities, materials, and add-ons in the cart.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {quoteTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => addTemplateToQuote(template)}
+                    className="rounded-xl border border-emerald-200 bg-white p-3 text-left transition hover:border-emerald-500 hover:bg-emerald-100"
+                  >
+                    <span className="block font-bold text-emerald-950">{template.name}</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-600">{template.description}</span>
+                    <span className="mt-2 block text-xs font-semibold text-emerald-800">Add {template.items.length} job{template.items.length === 1 ? "" : "s"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50 p-4">
               <p className="text-sm font-bold uppercase tracking-wide text-cyan-950">Step 1: Where are you working?</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -475,7 +514,7 @@ export default function Home() {
 
             <div className="grid gap-3 xl:grid-cols-[1fr_220px]">
               <TextBox id="search" label="Quick search (optional)" value={query} onChange={setQuery} placeholder="Search within selected area..." />
-              <SelectBox id="category" label="Filter by type" value={statusFilter} onChange={(val) => setStatusFilter(val as any)} options={statusOptions.map((item) => ({ id: item.id, label: item.label }))} />
+              <SelectBox id="status-filter" label="Filter by trade status" value={statusFilter} onChange={(val) => setStatusFilter(val as "all" | TradeStatus)} options={statusOptions.map((item) => ({ id: item.id, label: item.label }))} />
             </div>
 
             <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4">
@@ -489,34 +528,20 @@ export default function Home() {
                 className="mt-3 w-full rounded-xl border-2 border-blue-300 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none ring-blue-500 transition focus:ring-2"
               >
                 {filteredJobs.length === 0 ? <option value="">No jobs match these filters</option> : null}
-                {filteredJobs.map((item) => {
-                  const location = findJobLocation(item.id);
-                  const displayName = location 
-                    ? `${item.name}` 
-                    : `${item.name}`;
-                  return (
-                    <option key={item.id} value={item.id}>
-                      {displayName}
-                    </option>
-                  );
-                })}
+                {filteredJobs.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
               </select>
-              
-              {job.imageUrl && (
-                <div className="mt-4 overflow-hidden rounded-xl border-2 border-blue-200">
-                  <img 
-                    src={job.imageUrl} 
-                    alt={job.name}
-                    className="h-48 w-full object-cover"
-                  />
-                </div>
-              )}
-              
+
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${tradeStyles[job.tradeStatus]}`}>
                   {tradeLabels[job.tradeStatus]}
                 </span>
               </div>
+
+              <ScopeChecklist job={job} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-[220px_1fr]">
@@ -708,7 +733,7 @@ export default function Home() {
                 <label className="text-sm font-semibold text-slate-300">Status</label>
                 <select
                   value={quoteStatus}
-                  onChange={(e) => setQuoteStatus(e.target.value)}
+                  onChange={(e) => setQuoteStatus(e.target.value as QuoteStatus)}
                   className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100"
                 >
                   <option value="draft">Draft</option>
@@ -789,30 +814,6 @@ export default function Home() {
                 <div className="flex justify-between gap-4 py-2 text-lg"><span className="font-black">Total</span><span className="font-black text-cyan-200">{currency.format(invoice.total)}</span></div>
               </div>
               <p className="mt-4 text-xs leading-5 text-slate-500">Notes: Quote assumes visible scope only. Hidden damage, unsafe conditions, incorrect parts, or licensed trade work may change the price or require referral.</p>
-            </div>
-
-            <div className="rounded-2xl border border-blue-600 bg-blue-950/30 p-4">
-              <h2 className="font-semibold text-blue-200">💡 Charging Strategy</h2>
-              <div className="mt-3 space-y-3 text-xs leading-5 text-blue-100">
-                <div>
-                  <p className="font-bold text-blue-200">Same House, Multiple Rooms:</p>
-                  <p className="text-blue-100">✓ Travel/parking/access charged ONCE per visit</p>
-                  <p className="text-blue-100">✓ Each room's work priced separately</p>
-                  <p className="text-blue-100">✓ Example: Bedroom door + Kitchen faucet = 1 visit charge + 2 job charges</p>
-                </div>
-                <div>
-                  <p className="font-bold text-blue-200">Same Room, Multiple Fixtures:</p>
-                  <p className="text-blue-100">✓ Use same-fixture add-ons when working on same fixture</p>
-                  <p className="text-blue-100">✓ Add separate jobs for different fixtures in same room</p>
-                  <p className="text-blue-100">✓ Example: Bathroom = Toilet seat (main) + fill valve (add-on) + Sink faucet (separate job)</p>
-                </div>
-                <div>
-                  <p className="font-bold text-blue-200">Same Fixture, Multiple Tasks:</p>
-                  <p className="text-blue-100">✓ Always use same-fixture add-ons</p>
-                  <p className="text-blue-100">✓ More efficient, saves client money</p>
-                  <p className="text-blue-100">✓ Example: Door knob replacement + hinges + weather strip = main job + add-ons</p>
-                </div>
-              </div>
             </div>
 
             <InfoBlock title="Client message" items={[clientMessage]} />
@@ -1005,9 +1006,40 @@ function signedMoney(value: number) {
   return `${value > 0 ? "+" : ""}${currency.format(value)}`;
 }
 
-function PillButton({ children, active, onClick, tone = "slate" }: { children: ReactNode; active: boolean; onClick: () => void; tone?: "slate" | "cyan" }) {
-  const activeClass = tone === "cyan" ? "border-cyan-700 bg-cyan-100 text-cyan-950" : "border-slate-950 bg-slate-950 text-white";
-  return <button type="button" className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${active ? activeClass : "border-slate-300 bg-white text-slate-700 hover:border-cyan-500"}`} onClick={onClick}>{children}</button>;
+function parseAddOnIds(value: string) {
+  try {
+    const parsed: unknown = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function isQuoteStatus(value: string): value is QuoteStatus {
+  return ["draft", "sent", "approved", "completed", "cancelled"].includes(value);
+}
+
+function isPricingMode(value: string): value is PricingMode {
+  return ["informal_floor", "solo_freelancer", "insured_company"].includes(value);
+}
+
+function ScopeChecklist({ job }: { job: ServiceJob }) {
+  return (
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="rounded-xl border border-emerald-200 bg-white p-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Included / assumptions</p>
+        <ul className="mt-2 space-y-1 text-sm leading-5 text-slate-700">
+          {job.included.slice(0, 4).map((item) => <li key={item}>- {item}</li>)}
+        </ul>
+      </div>
+      <div className="rounded-xl border border-amber-200 bg-white p-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Not included</p>
+        <ul className="mt-2 space-y-1 text-sm leading-5 text-slate-700">
+          {job.notIncluded.slice(0, 4).map((item) => <li key={item}>- {item}</li>)}
+        </ul>
+      </div>
+    </div>
+  );
 }
 
 function SelectBox({ id, label, value, disabled, options, note, onChange }: { id: string; label: string; value: string; disabled?: boolean; options: Array<{ id: string; label: string }>; note?: string; onChange: (value: string) => void }) {
@@ -1065,11 +1097,6 @@ function NumberBox({ id, label, value, disabled, prefix, suffix, dark = false, o
       </div>
     </div>
   );
-}
-
-function CountPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "red" | "zinc" }) {
-  const tones = { emerald: "border-emerald-800 bg-emerald-950 text-emerald-200", amber: "border-amber-800 bg-amber-950 text-amber-200", red: "border-red-800 bg-red-950 text-red-200", zinc: "border-zinc-700 bg-zinc-900 text-zinc-200" };
-  return <div className={`rounded-2xl border px-4 py-3 ${tones[tone]}`}><p className="text-xs uppercase tracking-wide opacity-80">{label}</p><p className="mt-1 text-2xl font-black">{value}</p></div>;
 }
 
 function StatusCard({ job }: { job: ServiceJob }) {

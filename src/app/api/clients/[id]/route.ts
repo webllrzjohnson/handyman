@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { jsonError, parseRouteId } from "@/lib/api-helpers";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const client = await db.select().from(schema.clients).where(eq(schema.clients.id, Number(id)));
+    const clientId = parseRouteId(id);
+    if (!clientId) return jsonError("Invalid client ID", 400);
+
+    const client = await db.select().from(schema.clients).where(eq(schema.clients.id, clientId));
     
     if (client.length === 0) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -21,6 +25,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const clientId = parseRouteId(id);
+    if (!clientId) return jsonError("Invalid client ID", 400);
+
     const body = await request.json();
     const { name, email, phone, address, notes } = body;
 
@@ -37,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         notes: notes?.trim() || null,
         updatedAt: new Date(),
       })
-      .where(eq(schema.clients.id, Number(id)))
+      .where(eq(schema.clients.id, clientId))
       .returning();
 
     if (result.length === 0) {
@@ -54,7 +61,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await db.delete(schema.clients).where(eq(schema.clients.id, Number(id))).returning();
+    const clientId = parseRouteId(id);
+    if (!clientId) return jsonError("Invalid client ID", 400);
+
+    const result = await db.delete(schema.clients).where(eq(schema.clients.id, clientId)).returning();
     
     if (result.length === 0) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });

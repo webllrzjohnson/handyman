@@ -71,7 +71,6 @@ export const roomCategories: RoomCategory[] = [
         name: "Appliances & Filters",
         jobIds: [
           "range-hood-grease-charcoal-filter-clean-or-replacement",
-          "gas-fuel-appliance-work",
         ],
       },
     ],
@@ -91,7 +90,6 @@ export const roomCategories: RoomCategory[] = [
           "toilet-handle-chain-flapper-repair",
           "toilet-tank-replacement",
           "toilet-bowl-replacement-reset",
-          "toilet-floor-flange-repair-replacement",
         ],
       },
       {
@@ -277,7 +275,6 @@ export const roomCategories: RoomCategory[] = [
         jobIds: [
           "smoke-co-alarm-battery-replacement-only",
           "battery-only-smoke-co-alarm-replacement-like-for-like-no",
-          "hardwired-smoke-co-alarm-replacement",
         ],
       },
     ],
@@ -314,8 +311,6 @@ export const roomCategories: RoomCategory[] = [
           "smoke-co-alarm-battery-replacement-only",
           "battery-only-smoke-co-alarm-replacement-like-for-like-no",
           "thermostat-battery-replacement-only",
-          "hardwired-smoke-co-alarm-replacement",
-          "building-fire-alarm-system-device",
         ],
       },
     ],
@@ -405,8 +400,6 @@ export const roomCategories: RoomCategory[] = [
         jobIds: [
           "smoke-co-alarm-battery-replacement-only",
           "battery-only-smoke-co-alarm-replacement-like-for-like-no",
-          "hardwired-smoke-co-alarm-replacement",
-          "building-fire-alarm-system-device",
         ],
       },
       {
@@ -414,6 +407,7 @@ export const roomCategories: RoomCategory[] = [
         name: "Licensed Trade Referrals",
         jobIds: [
           "outlet-switch-gfci-dimmer-replacement",
+          "toilet-floor-flange-repair-replacement",
           "hardwired-smoke-co-alarm-replacement",
           "gas-fuel-appliance-work",
           "building-fire-alarm-system-device",
@@ -442,16 +436,4 @@ export function getRoomJobIds(roomId: string, areaId: string | null = null): str
   if (!areaId) return Array.from(new Set(room.areas.flatMap((area) => area.jobIds)));
 
   return room.areas.find((area) => area.id === areaId)?.jobIds ?? [];
-}
-
-// Helper to find room and area for a job
-export function findJobLocation(jobId: string): { room: RoomCategory; area: Area } | null {
-  for (const room of roomCategories) {
-    for (const area of room.areas) {
-      if (area.jobIds.includes(jobId)) {
-        return { room, area };
-      }
-    }
-  }
-  return null;
 }

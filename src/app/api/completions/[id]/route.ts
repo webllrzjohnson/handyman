@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { completionVariance, jsonError, parseCompletionPayload, parseRouteId } from "@/lib/api-helpers";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const completion = await db.select().from(schema.jobCompletions).where(eq(schema.jobCompletions.id, Number(id)));
+    const completionId = parseRouteId(id);
+    if (!completionId) return jsonError("Invalid completion ID", 400);
+
+    const completion = await db.select().from(schema.jobCompletions).where(eq(schema.jobCompletions.id, completionId));
     
     if (completion.length === 0) {
       return NextResponse.json({ error: "Completion not found" }, { status: 404 });
@@ -21,24 +25,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const completionId = parseRouteId(id);
+    if (!completionId) return jsonError("Invalid completion ID", 400);
+
     const body = await request.json();
-    
-    const variance = body.actualTotalCost && body.estimatedCost 
-      ? body.actualTotalCost - body.estimatedCost 
-      : null;
-    
-    const variancePercent = variance && body.estimatedCost 
-      ? (variance / body.estimatedCost) * 100 
-      : null;
+    const completion = parseCompletionPayload(body);
+    if ("error" in completion) return jsonError(completion.error, 400);
+
+    const { variance, variancePercent } = completionVariance(completion);
 
     const result = await db.update(schema.jobCompletions)
-      .set({ 
-        ...body, 
+      .set({
+        ...completion,
         variance,
         variancePercent,
-        updatedAt: new Date() 
+        updatedAt: new Date(),
       })
-      .where(eq(schema.jobCompletions.id, Number(id)))
+      .where(eq(schema.jobCompletions.id, completionId))
       .returning();
 
     if (result.length === 0) {
@@ -55,7 +58,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await db.delete(schema.jobCompletions).where(eq(schema.jobCompletions.id, Number(id))).returning();
+    const completionId = parseRouteId(id);
+    if (!completionId) return jsonError("Invalid completion ID", 400);
+
+    const result = await db.delete(schema.jobCompletions).where(eq(schema.jobCompletions.id, completionId)).returning();
     
     if (result.length === 0) {
       return NextResponse.json({ error: "Completion not found" }, { status: 404 });
